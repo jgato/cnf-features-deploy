@@ -22,6 +22,7 @@ const ZtpAnnotation = "ran.openshift.io/ztp-gitops-generated"
 const ZtpAnnotationDefaultValue = "{}"
 const UnsetStringValue = "__unset_value__"
 const FileExt = ".yaml"
+const inspectAnnotationPrefix = "inspect.metal3.io"
 
 var Separator = []byte("---\n")
 
@@ -180,6 +181,9 @@ type Clusters struct {
 	NumWorkers        uint8
 	ClusterType       string
 	CrTemplates       map[string]string `yaml:"crTemplates"`
+
+	// optional: merge MachineConfigs into a single CR
+	MergeDefaultMachineConfigs bool `yaml:"mergeDefaultMachineConfigs"`
 }
 
 // Provide custom YAML unmarshal for Clusters which provides default values
@@ -210,9 +214,11 @@ func (rv *Clusters) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if rv.NumMasters != 1 && rv.NumMasters != 3 {
 		return fmt.Errorf("Number of masters (counted %d) must be exactly 1 or 3", rv.NumMasters)
 	}
-	// Autodetect ClusterType based on the node counts
-	if rv.NumMasters == 1 && rv.NumWorkers == 0 {
+	// Autodetect ClusterType based on the node counts and fix number of workers to 0 for sno.
+	// The latter prevents AgentClusterInstall from being mutated upon SNO expansion
+	if rv.NumMasters == 1 {
 		rv.ClusterType = SNO
+		rv.NumWorkers = 0
 	} else {
 		rv.ClusterType = Standard
 	}
@@ -354,8 +360,9 @@ type Nodes struct {
 func (rv *Nodes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type ValueDefaulted Nodes
 	var defaults = ValueDefaulted{
-		BootMode: "UEFI",
-		Role:     "master",
+		BootMode:      "UEFI",
+		Role:          "master",
+		IronicInspect: "disabled",
 	}
 
 	out := defaults
@@ -421,4 +428,20 @@ type Interfaces struct {
 // BiosConfigRef
 type BiosConfigRef struct {
 	FilePath string `yaml:"filePath"`
+}
+
+// IronicInspect
+type IronicInspect string
+
+const (
+	inspectDisabled IronicInspect = "disabled"
+	inspectEnabled  IronicInspect = "enabled"
+)
+
+func (i IronicInspect) IsValid() error {
+	switch i {
+	case inspectDisabled, inspectEnabled:
+		return nil
+	}
+	return fmt.Errorf("ironicInspect must be either %s or %s ", inspectDisabled, inspectEnabled)
 }

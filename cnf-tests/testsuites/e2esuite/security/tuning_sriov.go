@@ -40,16 +40,19 @@ var _ = Describe("[sriov] Tuning CNI integration", func() {
 	})
 
 	AfterEach(func() {
-		err := namespaces.CleanPods(SriovTestNamespace, apiclient)
-		Expect(err).ToNot(HaveOccurred())
+		namespaces.CleanPods(SriovTestNamespace, apiclient)
 	})
 
 	Context("tuning cni over sriov", func() {
-		execute.BeforeAll(func() {
+		BeforeEach(func() {
 			if discovery.Enabled() {
 				Skip("Tuned sriov tests disabled for discovery mode")
 			}
-			networks.CleanSriov(sriovclient, SriovTestNamespace)
+		})
+
+		execute.BeforeAll(func() {
+			namespaces.CleanPods(SriovTestNamespace, sriovclient)
+			networks.CleanSriov(sriovclient)
 			sysctls, err := networks.SysctlConfig(map[string]string{fmt.Sprintf(Sysctl, "IFNAME"): "1"})
 			Expect(err).ToNot(HaveOccurred())
 			networks.CreateSriovPolicyAndNetwork(sriovclient, namespaces.SRIOVOperator, "test-network", "testresource", fmt.Sprintf("{%s}", sysctls))
@@ -80,7 +83,7 @@ var _ = Describe("[sriov] Tuning CNI integration", func() {
 			bondLinkName := "bond0"
 			sysctls, err := networks.SysctlConfig(map[string]string{fmt.Sprintf(Sysctl, "IFNAME"): "1"})
 			Expect(err).ToNot(HaveOccurred())
-			bondNetworkAttachmentDefinition, err := networks.NewNetworkAttachmentDefinitionBuilder(SriovTestNamespace, "bond").WithBond(bondLinkName, "net1", "net2").WithHostLocalIpam("1.1.1.0").WithTuning(sysctls).Build()
+			bondNetworkAttachmentDefinition, err := networks.NewNetworkAttachmentDefinitionBuilder(SriovTestNamespace, "bond").WithBond(bondLinkName, "net1", "net2", 1300).WithHostLocalIpam("1.1.1.0").WithTuning(sysctls).Build()
 			Expect(err).ToNot(HaveOccurred())
 			err = client.Client.Create(context.Background(), bondNetworkAttachmentDefinition)
 			Expect(err).ToNot(HaveOccurred())

@@ -54,6 +54,7 @@ spec:
           - mount_point: /var/imageregistry
             size: 102500
             start: 344844
+    mergeDefaultMachineConfigs: true
     nodes:
       - hostName: "node1"
         biosConfigRef:
@@ -101,6 +102,7 @@ spec:
       - cidr: 10.16.231.0/24
     serviceNetwork:
       - 172.30.0.0/16
+    mergeDefaultMachineConfigs: true
     nodes:
       - hostName: "node1"
         nodeNetwork:
@@ -209,6 +211,45 @@ func Test_siteConfigDifferentClusterVersions(t *testing.T) {
 	assert.Equal(t, sc.Spec.Clusters[0].ClusterImageSetNameRef, "openshift-4.9")
 }
 
+func Test_siteConfigInspect(t *testing.T) {
+	tests := []struct {
+		what           string
+		input          string
+		expectedError  string
+		expectedResult string
+	}{{
+		what:           "inspection disabled",
+		input:          "disabled",
+		expectedResult: string(inspectDisabled),
+	}, {
+		what:           "inspection enabled",
+		input:          "enabled",
+		expectedResult: string(inspectEnabled),
+	}, {
+		input:         "invalid input",
+		expectedError: "Error: ironicInspect must be either",
+	}}
+
+	scBuilder, _ := NewSiteConfigBuilder()
+	scBuilder.SetLocalExtraManifestPath("testdata/extra-manifest")
+
+	for _, test := range tests {
+		sc := SiteConfig{}
+		err := yaml.Unmarshal([]byte(siteConfigTest), &sc)
+		assert.Equal(t, err, nil)
+		sc.Spec.Clusters[0].Nodes[0].IronicInspect = IronicInspect(test.input)
+		result, err := scBuilder.Build(sc)
+		if test.expectedError == "" {
+			assert.NoError(t, err)
+			assertBmhInspection(t, result, IronicInspect(test.expectedResult), sc.Spec.Clusters[0].ClusterName, sc.Spec.Clusters[0].Nodes[0].HostName, test.what)
+
+		} else {
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), test.expectedError)
+		}
+	}
+}
+
 func Test_siteConfigBuildExtraManifestPaths(t *testing.T) {
 
 	sc := SiteConfig{}
@@ -266,7 +307,7 @@ func Test_siteConfigBuildExtraManifest(t *testing.T) {
 
 		if mapSourceCR["kind"] == "ConfigMap" {
 			dataMap := mapSourceCR["data"].(map[string]interface{})
-			assert.NotEqual(t, dataMap["03-workload-partitioning.yaml"], nil)
+			assert.NotEqual(t, dataMap["03-master-workload-partitioning.yaml"], nil)
 			break
 		}
 	}
@@ -558,18 +599,18 @@ func Test_CRTemplateOverride(t *testing.T) {
 		eachCrTemplates         map[string]string
 		expectedErrorContains   string
 		expectedSearchCollector bool
-		expectedBmhInspection   string
+		expectedBmhInspection   IronicInspect
 	}{{
 		what:                    "No overrides",
 		expectedErrorContains:   "",
 		expectedSearchCollector: false,
-		expectedBmhInspection:   "disabled",
+		expectedBmhInspection:   inspectDisabled,
 	}, {
 		what:                    "Override KlusterletAddonConfig at the site level",
 		siteCrTemplates:         map[string]string{"KlusterletAddonConfig": "testdata/KlusterletAddonConfigOverride.yaml"},
 		expectedErrorContains:   "",
 		expectedSearchCollector: true,
-		expectedBmhInspection:   "disabled",
+		expectedBmhInspection:   inspectDisabled,
 	}, {
 		what:                  "Override KlusterletAddonConfig with missing metadata",
 		clusterCrTemplates:    map[string]string{"KlusterletAddonConfig": "testdata/KlusterletAddonConfigOverride-MissingMetadata.yaml"},
@@ -587,13 +628,13 @@ func Test_CRTemplateOverride(t *testing.T) {
 		clusterCrTemplates:      map[string]string{"KlusterletAddonConfig": "testdata/KlusterletAddonConfigOverride.yaml"},
 		expectedErrorContains:   "",
 		expectedSearchCollector: true,
-		expectedBmhInspection:   "disabled",
+		expectedBmhInspection:   inspectDisabled,
 	}, {
 		what:                    "Override KlusterletAddonConfig at the cluster level",
 		clusterCrTemplates:      map[string]string{"KlusterletAddonConfig": "testdata/KlusterletAddonConfigOverride-NotTemplated.yaml"},
 		expectedErrorContains:   "",
 		expectedSearchCollector: true,
-		expectedBmhInspection:   "disabled",
+		expectedBmhInspection:   inspectDisabled,
 	}, {
 		what:                  "Override KlusterletAddonConfig at the node level",
 		nodeCrTemplates:       map[string]string{"KlusterletAddonConfig": "testdata/KlusterletAddonConfigOverride.yaml"},
@@ -603,7 +644,7 @@ func Test_CRTemplateOverride(t *testing.T) {
 		eachCrTemplates:         map[string]string{"BareMetalHost": "testdata/BareMetalHostOverride.yaml"},
 		expectedSearchCollector: false,
 		expectedErrorContains:   "",
-		expectedBmhInspection:   "enabled",
+		expectedBmhInspection:   inspectEnabled,
 	}, {
 		what:                  "Override with a missing file",
 		eachCrTemplates:       map[string]string{"BareMetalHost": "no/such/path.yaml"},
@@ -701,7 +742,7 @@ func assertKlusterletSearchCollector(t *testing.T, builtCRs map[string][]interfa
 	}
 }
 
-func assertBmhInspection(t *testing.T, builtCRs map[string][]interface{}, expectedBmhInspection string, clusterName, nodeName string, tag string) {
+func assertBmhInspection(t *testing.T, builtCRs map[string][]interface{}, expectedBmhInspection IronicInspect, clusterName, nodeName string, tag string) {
 	for _, cr := range builtCRs["test-site/cluster1"] {
 		mapSourceCR := cr.(map[string]interface{})
 		if mapSourceCR["kind"] == "BareMetalHost" {
@@ -709,8 +750,12 @@ func assertBmhInspection(t *testing.T, builtCRs map[string][]interface{}, expect
 			assert.Equal(t, nodeName, metadata["name"].(string), tag)
 			assert.Equal(t, clusterName, metadata["namespace"].(string), tag)
 			annotations := metadata["annotations"].(map[string]interface{})
-			enabled := annotations["inspect.metal3.io"].(string)
-			assert.Equal(t, expectedBmhInspection, enabled, tag)
+			enabled := annotations["inspect.metal3.io"]
+			if expectedBmhInspection != inspectDisabled {
+				assert.Equal(t, nil, enabled, tag)
+			} else {
+				assert.Equal(t, expectedBmhInspection, enabled, tag)
+			}
 			break
 		}
 	}
@@ -1071,6 +1116,112 @@ spec:
 			} else {
 				if !cmp.Equal(outputStr, string(filesData)) {
 					t.Errorf("filterExtraManifestsHigherLevel() got = %v, want %v", outputStr, string(filesData))
+				}
+			}
+		})
+	}
+
+}
+
+func Test_mergeDefaultMachineConfigs(t *testing.T) {
+	configSplitYaml := `
+    mergeDefaultMachineConfigs: %s
+`
+	const s = `
+spec:
+  clusterImageSetNameRef: "openshift-v4.8.0"
+  clusters:
+  - clusterName: "cluster1"
+    %s
+    nodes:
+      - hostName: "node1"
+`
+
+	type args struct {
+		configSplit string
+	}
+	tests := []struct {
+		name       string
+		args       args
+		want       string
+		wantErrMsg string
+		wantErr    bool
+	}{
+		{
+			name:    "split when mergeDefaultMachineConfigs is false",
+			wantErr: false,
+			args: args{
+				configSplit: fmt.Sprintf(configSplitYaml, `false`),
+			},
+			want: "testdata/SplitAndMergeMachineConfigExpected/splitMC.yaml",
+		},
+		{
+			name:    "split without the presence of the the bool for mergeDefaultMachineConfigs",
+			wantErr: false,
+			args: args{
+				configSplit: fmt.Sprintf(configSplitYaml, ``),
+			},
+			want: "testdata/SplitAndMergeMachineConfigExpected/splitMC.yaml",
+		},
+		{
+			name:    "split without the presence of mergeDefaultMachineConfigs",
+			wantErr: false,
+			args: args{
+				configSplit: "",
+			},
+			want: "testdata/SplitAndMergeMachineConfigExpected/splitMC.yaml",
+		},
+		{
+			name:    "merge when mergeDefaultMachineConfigs set to true",
+			wantErr: false,
+			args: args{
+				configSplit: fmt.Sprintf(configSplitYaml, `true`),
+			},
+			want: "testdata/SplitAndMergeMachineConfigExpected/mergeMC.yaml",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sc := SiteConfig{}
+			scString := fmt.Sprintf(s, tt.args.configSplit)
+
+			err := yaml.Unmarshal([]byte(scString), &sc)
+			if !cmp.Equal(err, nil) {
+				t.Errorf("Test_legacyConfigSplitMachineConfigCRs() unmarshall err got = %v, want %v", err.Error(), "no error")
+				t.FailNow()
+			}
+
+			scBuilder, err := NewSiteConfigBuilder()
+			scBuilder.SetLocalExtraManifestPath("testdata/source-cr-extra-manifest-copy")
+			clustersCRs, err := scBuilder.Build(sc)
+			assert.NoError(t, err)
+			assert.Equal(t, len(clustersCRs), len(sc.Spec.Clusters))
+
+			var outputBuffer bytes.Buffer
+			for _, clusterCRs := range clustersCRs {
+				for _, clusterCR := range clusterCRs {
+					cr, err := yaml.Marshal(clusterCR)
+					assert.NoError(t, err)
+
+					outputBuffer.Write(Separator)
+					outputBuffer.Write(cr)
+				}
+			}
+			outputStr := outputBuffer.String()
+			outputBuffer.Reset()
+			if outputStr == "" && len(err.Error()) > 0 {
+				t.Errorf("unable to create SC = %v, want %v", err.Error(), "no error")
+				t.FailNow()
+			}
+
+			filesData, err := ReadFile(tt.want)
+			if tt.wantErr {
+				if !cmp.Equal(outputStr, tt.wantErrMsg) {
+					t.Errorf("Test_MergeDefaultMachineConfigs() error case got = %v, want %v", outputStr, tt.wantErrMsg)
+				}
+			} else {
+				if !cmp.Equal(outputStr, string(filesData)) {
+					t.Errorf("Test_MergeDefaultMachineConfigs() got = %v, want %v", outputStr, string(filesData))
 				}
 			}
 		})

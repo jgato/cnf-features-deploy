@@ -102,11 +102,23 @@ func (pbuilder *PolicyBuilder) Build(policyGenTemp utils.PolicyGenTemplate) (map
 					acmPolicy.Spec.PolicyTemplates[0].ObjDef.Spec.RemediationAction = remediationActionVal
 
 					// set to default EvaluationInterval or user set from PGT
+					if err := validateInterval(policyGenTemp.Spec.EvaluationInterval.Compliant); err != nil {
+						return policies, errors.New("Spec: evaluationInterval.compliant '" + err.Error() + "'")
+					}
+					if err := validateInterval(policyGenTemp.Spec.EvaluationInterval.NonCompliant); err != nil {
+						return policies, errors.New("Spec: evaluationInterval.noncompliant '" + err.Error() + "'")
+					}
 					acmPolicy.Spec.PolicyTemplates[0].ObjDef.Spec.EvaluationInterval = policyGenTemp.Spec.EvaluationInterval
 					if sFile.EvaluationInterval.Compliant != utils.UnsetStringValue {
+						if err := validateInterval(sFile.EvaluationInterval.Compliant); err != nil {
+							return policies, errors.New(sFile.FileName + ": evaluationInterval.compliant '" + err.Error() + "'")
+						}
 						acmPolicy.Spec.PolicyTemplates[0].ObjDef.Spec.EvaluationInterval.Compliant = sFile.EvaluationInterval.Compliant
 					}
 					if sFile.EvaluationInterval.NonCompliant != utils.UnsetStringValue {
+						if err := validateInterval(sFile.EvaluationInterval.NonCompliant); err != nil {
+							return policies, errors.New(sFile.FileName + ": evaluationInterval.noncompliant '" + err.Error() + "'")
+						}
 						acmPolicy.Spec.PolicyTemplates[0].ObjDef.Spec.EvaluationInterval.NonCompliant = sFile.EvaluationInterval.NonCompliant
 					}
 
@@ -134,6 +146,9 @@ func (pbuilder *PolicyBuilder) Build(policyGenTemp utils.PolicyGenTemplate) (map
 
 					var policyTemplate = policies[output].(utils.AcmPolicy).Spec.PolicyTemplates[0]
 					if sFile.EvaluationInterval.Compliant != utils.UnsetStringValue {
+						if err := validateInterval(sFile.EvaluationInterval.Compliant); err != nil {
+							return policies, errors.New(sFile.FileName + ": evaluationInterval.compliant '" + err.Error() + "'")
+						}
 						if sFile.EvaluationInterval.Compliant != policyTemplate.ObjDef.Spec.EvaluationInterval.Compliant &&
 							policyTemplate.ObjDef.Spec.EvaluationInterval.Compliant != policyGenTemp.Spec.EvaluationInterval.Compliant {
 							return policies, errors.New("Compliant EvaluationInterval '" + sFile.EvaluationInterval.Compliant + "' conflict with '" +
@@ -142,6 +157,9 @@ func (pbuilder *PolicyBuilder) Build(policyGenTemp utils.PolicyGenTemplate) (map
 						acmPolicy.Spec.PolicyTemplates[0].ObjDef.Spec.EvaluationInterval.Compliant = sFile.EvaluationInterval.Compliant
 					}
 					if sFile.EvaluationInterval.NonCompliant != utils.UnsetStringValue {
+						if err := validateInterval(sFile.EvaluationInterval.NonCompliant); err != nil {
+							return policies, errors.New(sFile.FileName + ": evaluationInterval.noncompliant '" + err.Error() + "'")
+						}
 						if sFile.EvaluationInterval.NonCompliant != policyTemplate.ObjDef.Spec.EvaluationInterval.NonCompliant &&
 							policyTemplate.ObjDef.Spec.EvaluationInterval.NonCompliant != policyGenTemp.Spec.EvaluationInterval.NonCompliant {
 							return policies, errors.New("NonCompliant EvaluationInterval '" + sFile.EvaluationInterval.NonCompliant + "' conflict with '" +
@@ -309,10 +327,14 @@ func (pbuilder *PolicyBuilder) setValues(sourceMap map[string]interface{}, value
 			reflect.ValueOf(v).Kind() == reflect.Array {
 			intfArray := v.([]interface{})
 
+			// The slice in the source-cr is not empty and its element is map
 			if len(intfArray) > 0 && reflect.ValueOf(intfArray[0]).Kind() == reflect.Map {
 				tmpMapValues := make([]map[string]interface{}, len(intfArray))
 				vIntfArray := valueMap[k].([]interface{})
 
+				// Loop through each element of the slice in the source-cr, merge the user provided content
+				// with the element in the source-cr if user overrides exists or append the element of the slice
+				// in the source-cr if no user overrides
 				for id, intfMap := range intfArray {
 					if id < len(vIntfArray) {
 						tmpMapValues[id] = pbuilder.setValues(intfMap.(map[string]interface{}), vIntfArray[id].(map[string]interface{}))
@@ -320,8 +342,17 @@ func (pbuilder *PolicyBuilder) setValues(sourceMap map[string]interface{}, value
 						tmpMapValues[id] = intfMap.(map[string]interface{})
 					}
 				}
+
+				// Loop through each element of the slice in the user provided overlay,
+				// append the user provided elements if they are not in the source-cr
+				for id, vIntfMap := range vIntfArray {
+					if id >= len(intfArray) {
+						tmpMapValues = append(tmpMapValues, vIntfMap.(map[string]interface{}))
+					}
+				}
 				sourceMap[k] = tmpMapValues
 			} else {
+				// Copy the user provided slice if the slice in the source-cr is empty or its element is not map
 				sourceMap[k] = valueMap[k]
 			}
 		} else {

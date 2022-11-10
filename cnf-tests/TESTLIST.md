@@ -13,47 +13,49 @@ The validation tests are preliminary tests intended to verify that the instrumen
 | metallb MetalLB should have the MetalLB Operator deployment in running state | Verifies the MetalLB Operator deployment is in running state | 
 | metallb Platform Check Should have the MetalLB Operator namespace | Verifies the MetalLB Operator namespace is present | 
 | metallb Platform Check should be either Kubernetes or OpenShift platform | Verifies metallb is able to check the platform correctly | 
+| validation [fec] should have a ready deployment for the OpenNESS Operator for Intel FPGA PAC N3000 (Management) operator | Checks Intel FPGA PAC N3000 (Management) deployment ready - sriov-fec-controller-manager | 
+| validation [fec] should have all the required OpenNESS Operator for Intel FPGA PAC N3000 (Management) operands | Checks the existence and quantity of each Intel FPGA PAC N3000 (Management) daemonset | 
+| validation [fec] should have the fec CRDs available in the cluster | Checks the existence of the Intel FPGA PAC N3000 (Management) CRDs used by the Intel FPGA PAC N3000 (Management) operator. | 
+| validation [gatekeeper] mutation should have the gatekeeper namespace | Checks the existence of the gatekeeper namespace. | 
+| validation [gatekeeper] mutation should have the gatekeeper-audit deployment in running state | Checks that all the audit deployment pods are running. | 
+| validation [gatekeeper] mutation should have the gatekeeper-controller-manager deployment in running state | Checks that all the mutation deployment pods are running. | 
+| validation [gatekeeper] mutation should have the gatekeeper-operator-controller-manager deployment in running state | Checks that all the operator deployment pods are running. | 
+| validation [multineworkpolicy] should have MultiNetworkPolicy CRD available in the cluster | Check the existence of MultiNetworkPolicy Custome Resource Definition in the cluster. | 
+| validation [multineworkpolicy] should have the daemonset in running state | Check that multi-networkpolicies-iptables DaemonSet is ready | 
+| validation [n3000] should have a ready deployment for the OpenNESS Operator for Intel FPGA PAC N3000 (Programming) operator | Checks Intel FPGA PAC N3000 (Programming) deployment ready - n3000-controller-manager | 
+| validation [n3000] should have all the required OpenNESS Operator for Intel FPGA PAC N3000 (Programming) operands | Checks the existence and quantity of each Intel FPGA PAC N3000 (Programming) daemonset | 
+| validation [n3000] should have the n3000 CRDs available in the cluster | Checks the existence of the Intel FPGA PAC N3000 (Programming) CRDs used by the Intel FPGA PAC N3000 (Programming) operator. | 
+| validation [performance]|[dpdk]|[s2i] Should have the performance CRD available in the cluster | Checks the existence of the PerformanceProfile CRD used by the Performance Addon Operator. | 
+| validation [ptp] should have the linuxptp daemonset in running state | Check if the linuxptp daemonset is running. | 
+| validation [ptp] should have the ptp CRDs available in the cluster | Checks the existence of the ptp CRDs used by the PTP Operator. | 
+| validation [ptp] should have the ptp namespace | Checks the existence of the PTP Operator's namespace. | 
+| validation [ptp] should have the ptp operator deployment in running state | Check if the PTP Operator is running. | 
+| validation [s2i] should have a tag ready from the dpdk imagestream | Check that, if a dpdk imagestream exists, it also have a tag ready to be consumed | 
+| validation [sctp] should have a sctp enable machine config | Check the presence of a machine config that enables sctp. | 
+| validation [sctp] should have the sctp enable machine config as part of the CNF machine config pool | Check if the sctp machine config is used by the declared machine config pool. | 
+| validation [sriov]|[dpdk]|[s2i] Should have the sriov CRDs available in the cluster | Checks the existence of the SR-IOV CRDs used by the SR-IOV Operator. | 
+| validation [sriov]|[dpdk]|[s2i] should deploy the injector pod if requested | Check the optional presence of the SR-IOV injector pod | 
+| validation [sriov]|[dpdk]|[s2i] should deploy the operator webhook if requested | Check the optional presence of the SR-IOV webhook | 
+| validation [sriov]|[dpdk]|[s2i] should have SR-IOV node statuses not in progress | Check that all the SR-IOV node state resources are not in progress | 
+| validation [sriov]|[dpdk]|[s2i] should have the sriov namespace | Checks the existence of the SR-IOV Operator's namespace. | 
+| validation [sriov]|[dpdk]|[s2i] should have the sriov operator deployment in running state | Check if the SR-IOV Operator is running. | 
+| validation [sro] Should have nfd daemonsets | Check the presence of the node feature discovery daemonset | 
+| validation [sro] should have a ready deployment for the NFD Operator | Check that node feature discovery operator is deployed and running as expected | 
+| validation [sro] should have a ready deployment for the Special Resource Operator | Check that special resource operator is deployed and running as expected | 
+| validation [sro] should have at least one nfd CR apply on the cluster to deploy the operand daemonsets | Check a CR for node feature discovery exists on the cluster to deploy the operands | 
+| validation [sro] should have the internal registry available in the cluster | Check the presence of the internal registry operator | 
+| validation [sro] should have the node feature discovery CRDs available in the cluster | Check the presence of the node feature discovery CRD | 
+| validation [sro] should have the special resource operator CRDs available in the cluster | Check the presence of the special resource operator CRD | 
+| validation [xt_u32] should have a xt_u32 enable machine config | Check the presence of a machine config that enables xt_u32. | 
+| validation [xt_u32] should have the xt_u32 enable machine config as part of the CNF machine config pool | Check if the xt_u32 machine config is used by the declared machine config pool. | 
 | validation container-mount-namespace should have a container-mount-namespace machine config for master | Check the presence of a machine config that enables container-mount-namespace on masters. | 
 | validation container-mount-namespace should have a container-mount-namespace machine config for worker | Check the presence of a machine config that enables container-mount-namespace on workers. | 
 | validation container-mount-namespace should have the container-mount-namespace machine config as part of the master machine config pool | Check if the container-mount-namespace machine config is used by the master machine config pool | 
 | validation container-mount-namespace should have the container-mount-namespace machine config as part of the worker machine config pool | Check if the container-mount-namespace machine config is used by the worker machine config pool | 
-| validation dpdk should have a tag ready from the dpdk imagestream | Check that, if a dpdk imagestream exists, it also have a tag ready to be consumed | 
-| validation fec should have a ready deployment for the OpenNESS Operator for Intel FPGA PAC N3000 (Management) operator | Checks Intel FPGA PAC N3000 (Management) deployment ready - sriov-fec-controller-manager | 
-| validation fec should have all the required OpenNESS Operator for Intel FPGA PAC N3000 (Management) operands | Checks the existence and quantity of each Intel FPGA PAC N3000 (Management) daemonset | 
-| validation fec should have the fec CRDs available in the cluster | Checks the existence of the Intel FPGA PAC N3000 (Management) CRDs used by the Intel FPGA PAC N3000 (Management) operator. | 
-| validation gatekeeper mutation should have the gatekeeper namespace | Checks the existence of the gatekeeper namespace. | 
-| validation gatekeeper mutation should have the gatekeeper-audit deployment in running state | Checks that all the audit deployment pods are running. | 
-| validation gatekeeper mutation should have the gatekeeper-controller-manager deployment in running state | Checks that all the mutation deployment pods are running. | 
-| validation gatekeeper mutation should have the gatekeeper-operator-controller-manager deployment in running state | Checks that all the operator deployment pods are running. | 
 | validation general [ovn] should have a openshift-ovn-kubernetes namespace | Checks the presence of the ovn-k8s namespace, to make sure that the ovn-k8s is used as sdn. | 
 | validation general should have all the nodes in ready | Checks that all the nodes are in ready state | 
 | validation general should have one machine config pool with the requested label | Checks the existance of a machine config pool with the value passed in the ROLE_WORKER_CNF env variable (or the default worker-cnf). | 
 | validation general should report all machine config pools are in ready status | Checks that all the machine config pools are ready so the tests can be run. | 
-| validation n3000 should have a ready deployment for the OpenNESS Operator for Intel FPGA PAC N3000 (Programming) operator | Checks Intel FPGA PAC N3000 (Programming) deployment ready - n3000-controller-manager | 
-| validation n3000 should have all the required OpenNESS Operator for Intel FPGA PAC N3000 (Programming) operands | Checks the existence and quantity of each Intel FPGA PAC N3000 (Programming) daemonset | 
-| validation n3000 should have the n3000 CRDs available in the cluster | Checks the existence of the Intel FPGA PAC N3000 (Programming) CRDs used by the Intel FPGA PAC N3000 (Programming) operator. | 
-| validation performance Should have the performance CRD available in the cluster | Checks the existence of the PerformanceProfile CRD used by the Performance Addon Operator. | 
-| validation ptp should have the linuxptp daemonset in running state | Check if the linuxptp daemonset is running. | 
-| validation ptp should have the ptp CRDs available in the cluster | Checks the existence of the ptp CRDs used by the PTP Operator. | 
-| validation ptp should have the ptp namespace | Checks the existence of the PTP Operator's namespace. | 
-| validation ptp should have the ptp operator deployment in running state | Check if the PTP Operator is running. | 
-| validation sctp should have a sctp enable machine config | Check the presence of a machine config that enables sctp. | 
-| validation sctp should have the sctp enable machine config as part of the CNF machine config pool | Check if the sctp machine config is used by the declared machine config pool. | 
-| validation sriov Should have the sriov CRDs available in the cluster | Checks the existence of the SR-IOV CRDs used by the SR-IOV Operator. | 
-| validation sriov should deploy the injector pod if requested | Check the optional presence of the SR-IOV injector pod | 
-| validation sriov should deploy the operator webhook if requested | Check the optional presence of the SR-IOV webhook | 
-| validation sriov should have SR-IOV node statuses not in progress | Check that all the SR-IOV node state resources are not in progress | 
-| validation sriov should have the sriov namespace | Checks the existence of the SR-IOV Operator's namespace. | 
-| validation sriov should have the sriov operator deployment in running state | Check if the SR-IOV Operator is running. | 
-| validation sro Should have nfd daemonsets | Check the presence of the node feature discovery daemonset | 
-| validation sro should have a ready deployment for the NFD Operator | Check that node feature discovery operator is deployed and running as expected | 
-| validation sro should have a ready deployment for the Special Resource Operator | Check that special resource operator is deployed and running as expected | 
-| validation sro should have at least one nfd CR apply on the cluster to deploy the operand daemonsets | Check a CR for node feature discovery exists on the cluster to deploy the operands | 
-| validation sro should have the internal registry available in the cluster | Check the presence of the internal registry operator | 
-| validation sro should have the node feature discovery CRDs available in the cluster | Check the presence of the node feature discovery CRD | 
-| validation sro should have the special resource operator CRDs available in the cluster | Check the presence of the special resource operator CRD | 
-| validation xt_u32 should have a xt_u32 enable machine config | Check the presence of a machine config that enables xt_u32. | 
-| validation xt_u32 should have the xt_u32 enable machine config as part of the CNF machine config pool | Check if the xt_u32 machine config is used by the declared machine config pool. | 
 
 # CNF Tests List
 The cnf tests instrument each different feature required by CNF. Following, a detailed description for each test.
@@ -63,27 +65,43 @@ The cnf tests instrument each different feature required by CNF. Following, a de
 
 | Test Name | Description |
 | -- | ----------- |
-| dpdk Downward API Volume is readable in container | Verifies that the container downward API volumes are readable and match the Pod inforamtion details | 
-| dpdk VFS allocated for dpdk Validate HugePages SeLinux access should allow to remove the hugepage file inside the pod | Verifies that we are able to remove the hugepages files after the DPDK running | 
-| dpdk VFS allocated for dpdk Validate HugePages should allocate the amount of hugepages requested | Verifies that the number of hugepages requested by the pod are allocated. | 
-| dpdk VFS allocated for dpdk Validate NUMA aliment should allocate all the resources on the same NUMA node | Verifies that both the cpus and the pci resources are allocated to the same numa node. | 
-| dpdk VFS allocated for dpdk Validate NUMA aliment should allocate the requested number of cpus | Verifies that the number of requested CPUs are allocated to a pod. | 
-| dpdk VFS allocated for dpdk Validate a DPDK workload running inside a pod Should forward and receive packets | Verifies that the testpmd application inside a pod is able to receive and send packets. | 
-| dpdk VFS allocated for dpdk Validate the build Should forward and receive packets from a pod running dpdk base on a image created by building config | Verifies that the testpmd application inside a pod is able to receive and send packets using an image built via the build pipeline. | 
-| dpdk VFS split for dpdk and netdevice Run a regular pod using a vf shared with the dpdk's pf | Verifies that a regular pod can run while sharing vfs with a pod using a vf for dpdk payload | 
-| dpdk VFS split for dpdk and netdevice should forward and receive packets from a pod running dpdk base | Verifies that the testpmd application inside a pod is able to receive and send packets, when the pf is shared between regular netdevice pods and dpdk pods. | 
-| dpdk restoring configuration should restore the cluster to the original status | Verifies that the cluster state is restored after running the dpdk tests. | 
-| dpdk vhostnet Client should be able to forward packets Should be able to transmit packets | Verifies packets can be sent to a tap device | 
-| dpdk vhostnet Server should be able to receive packets and forward to tap device Should be able to transmit packets | Verifies packets can be forewarded to a tap device | 
+| [dpdk] Downward API Volume is readable in container | Verifies that the container downward API volumes are readable and match the Pod inforamtion details | 
+| [dpdk] VFS allocated for dpdk Validate HugePages SeLinux access should allow to remove the hugepage file inside the pod | Verifies that we are able to remove the hugepages files after the DPDK running | 
+| [dpdk] VFS allocated for dpdk Validate HugePages should allocate the amount of hugepages requested | Verifies that the number of hugepages requested by the pod are allocated. | 
+| [dpdk] VFS allocated for dpdk Validate NUMA aliment should allocate all the resources on the same NUMA node | Verifies that both the cpus and the pci resources are allocated to the same numa node. | 
+| [dpdk] VFS allocated for dpdk Validate NUMA aliment should allocate the requested number of cpus | Verifies that the number of requested CPUs are allocated to a pod. | 
+| [dpdk] VFS allocated for dpdk Validate a DPDK workload running inside a pod Should forward and receive packets | Verifies that the testpmd application inside a pod is able to receive and send packets. | 
+| [dpdk] VFS split for dpdk and netdevice Run a regular pod using a vf shared with the dpdk's pf | Verifies that a regular pod can run while sharing vfs with a pod using a vf for dpdk payload | 
+| [dpdk] VFS split for dpdk and netdevice should forward and receive packets from a pod running dpdk base | Verifies that the testpmd application inside a pod is able to receive and send packets, when the pf is shared between regular netdevice pods and dpdk pods. | 
+| [dpdk] restoring configuration should restore the cluster to the original status | Verifies that the cluster state is restored after running the dpdk tests. | 
+| [dpdk] vhostnet Client should be able to forward packets Should be able to transmit packets | Verifies packets can be sent to a tap device | 
+| [dpdk] vhostnet Server should be able to receive packets and forward to tap device Should be able to transmit packets | Verifies packets can be forewarded to a tap device | 
 
 ## SR-IOV
 
 | Test Name | Description |
 | -- | ----------- |
+| [sriov] Bond CNI integration bond cni over sriov pod with sysctl's on bond over sriov interfaces should start | Verfies a pod with bond over sriov interfaces starts correctly | 
 | [sriov] SCTP integration Test Connectivity Connectivity between client and server Should work over a SR-IOV device | SCTP connectivity test over SR-IOV vfs. | 
 | [sriov] Tuning CNI integration tuning cni over sriov pods with sysctl's on bond over sriov interfaces should start | Pod with tuning-cni on bond over sriov should start | 
 | [sriov] Tuning CNI integration tuning cni over sriov pods with sysctl's over sriov interface should start | Pod with tuning-cni over sriov should start | 
 | [sriov] VRF integration  Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap {"IPStack":"ipv4"} | Verifies that it's possible to configure within the same node 1 VRF that overlaps pod's network + 2 non overlapping VRF on top of SriovNetwork. Connectivity ICMP test. | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Egress ALLOW traffic from a specific pod only to a specific pod | Verifies that an Egress rule can limit the traffic to a specific pod | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Egress DENY all traffic from a pod | Verifies that an Engress can deny the outgoing traffic from a specific pod | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration IPv6 ALLOW traffic to a specific pod only from a specific pod | Verifies that multinetwork policy rules can be applied to IPv6 secondary networks | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Ingress ALLOW traffic to a pod from all pods in a namespace | Verifies that an Ingress rules can limit incoming traffic from specific namespace | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Ingress ALLOW traffic to a pod from pods selected by labels | Verifies that an Ingress rule can limit incoming traffic from pods with specific labels | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Ingress ALLOW traffic to a pod from using an OR combination of namespace and pod labels | Verifies that a policy with multiple Ingress rules can limit incoming traffic from specific namespaces or pod labels | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Ingress ALLOW traffic to a pod using an AND combination of namespace and pod labels | Verifies that Ingress rules can limit incoming traffic from specific namespaces and pod labels | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Ingress DENY all traffic to a pod | Verifies that an Ingress rules can deny any incoming traffic | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Ingress DENY all traffic to and within a namespace | Verifies that an Ingress rules can deny all traffic in a namespace | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Ports/Protocol Allow access only to a specific UDP port from any pod | Verifies rules can be applied to specific UDP ports | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Ports/Protocol Allow access only to a specific port/protocol SCTP | Verifies rules can be applied to SCTP transport protocol | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Ports/Protocol Allow access only to a specific port/protocol TCP | Verifies rules can be applied to TCP transport protocol | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Ports/Protocol Allow access only to a specific port/protocol TCP+UDP | Verifies rules can be applied to multiple transport protocols | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Ports/Protocol Allow access only to a specific port/protocol UDP | Verifies rules can be applied to UDP transport protocol | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Stacked policies enforce multiple Ingress stacked policies with overlapping podSelector | Verifies multiple rules can be applied to the same pods | 
+| [sriov] [multinetworkpolicy] MultiNetworkPolicy integration Stacked policies enforce multiple Ingress stacked policies with overlapping podSelector and different ports | Verifies multiple rules with different ports can be applied to the same pods | 
 | [sriov] operator Custom SriovNetworkNodePolicy Configuration Create vfio-pci node policy Should be possible to create a vfio-pci resource | Verifies creating of vfio-pci resources | 
 | [sriov] operator Custom SriovNetworkNodePolicy Configuration MTU Should support jumbo frames | SR-IOV connectivity tests with jumbo frames. | 
 | [sriov] operator Custom SriovNetworkNodePolicy Configuration Main PF should work when vfs are used by pods | Verifies that it's possible to use the PF as a network interface with VFs are used by pod workloads | 
@@ -92,8 +110,9 @@ The cnf tests instrument each different feature required by CNF. Following, a de
 | [sriov] operator Custom SriovNetworkNodePolicy Configuration PF shutdown Should be able to create pods successfully if PF is down.Pods are able to communicate with each other on the same node | Checks that the pods are able to use the vfs even if the pf is down. | 
 | [sriov] operator Custom SriovNetworkNodePolicy Nic Validation Test connectivity using the requested nic Ethernet Controller XXV710 Intel(R) FPGA Programmable Acceleration Card N3000 for Networking | Optional test to assert that N3000 works for networking | 
 | [sriov] operator Custom SriovNetworkNodePolicy Nic Validation Test connectivity using the requested nic Intel Corporation Ethernet Controller XXV710 for 25GbE SFP28 | Optional test to assert that 25GbE SFP28 works for networking | 
-| [sriov] operator Custom SriovNetworkNodePolicy Resource Injector SR-IOV Operator Config, disable Network resource injector | Verifies that by disabling the network resource injector in the config, the injector is really disabled. | 
-| [sriov] operator Custom SriovNetworkNodePolicy Resource Injector SR-IOV Operator Config, disable Webhook resource injector | Verifies that by disabling the mutating webhook in the config, the webhook is really disabled. | 
+| [sriov] operator Custom SriovNetworkNodePolicy Resource Injector SR-IOV Operator Config, disable Operator Webhook | Verifies that by disabling the network resource injector in the operator config, the injector is really disabled. | 
+| [sriov] operator Custom SriovNetworkNodePolicy Resource Injector SR-IOV Operator Config, disable Resource Injector | Verifies that by disabling the mutating webhook in the operator config, the webhook is really disabled. | 
+| [sriov] operator Custom SriovNetworkNodePolicy Resource Injector SR-IOV Operator Config, disable Resource Injector and Operator Webhook | Verifies that by disabling the both webhook and resource injector in the operator config, related resources are really disabled. | 
 | [sriov] operator Custom SriovNetworkNodePolicy vhost-net and tun devices Validation Should have the vhost-net device inside the container | Verifies the vhost-net device is inside the container | 
 | [sriov] operator Generic SriovNetworkNodePolicy IPv6 configured secondary interfaces on pods should be able to ping each other | Connectivity test via icmp for two ipv6 configured interfaces. | 
 | [sriov] operator Generic SriovNetworkNodePolicy Meta Plugin Configuration Should be able to configure a metaplugin | Verifies that it's possible to configure a metaplugin in chain with the sriov CNI plugin | 
@@ -115,25 +134,30 @@ The cnf tests instrument each different feature required by CNF. Following, a de
 
 | Test Name | Description |
 | -- | ----------- |
-| sctp Negative - Sctp disabled Client Server Connection Should NOT start a server pod | Negative test: when the sctp module is not enabled, verifies that the connectivity is not working. | 
-| sctp Test Connectivity Connectivity between client and server Connectivity Test Custom namespace | Pod to pod connectivity within a custom namespace. | 
-| sctp Test Connectivity Connectivity between client and server Connectivity Test Custom namespace with policy | Verifies that the connectivity works when putting a matching network policy. | 
-| sctp Test Connectivity Connectivity between client and server Connectivity Test Custom namespace with policy no port | Verifies that a blocking network policy stops the connectivity. | 
-| sctp Test Connectivity Connectivity between client and server Connectivity Test Default namespace | Pod to pod connectivity, default namespace. | 
-| sctp Test Connectivity Connectivity between client and server Connectivity Test Default namespace with policy | Verifies that the connectivity works when putting a matching network policy, default namespace. | 
-| sctp Test Connectivity Connectivity between client and server Connectivity Test Default namespace with policy no port | Verifies that a blocking network policy stops the connectivity, default namespace. | 
-| sctp Test Connectivity Connectivity between client and server Kernel Module is loaded | Check that the kernel module is loaded | 
-| sctp Test Connectivity Connectivity between client and server Should connect a client pod to a server pod. Feature LatencySensitive Active | Check that pod 2 pod connectivity works with the LatencySensitive Feature activated | 
-| sctp Test Connectivity Connectivity between client and server connect a client pod to a server pod via Service ClusterIP Custom namespace | Pod to pod connectivity via service ClusterIP, custom namespace | 
-| sctp Test Connectivity Connectivity between client and server connect a client pod to a server pod via Service ClusterIP Default namespace | Pod to pod connectivity via service ClusterIP, default namespace | 
-| sctp Test Connectivity Connectivity between client and server connect a client pod to a server pod via Service Node Port Custom namespace | Pod to pod connectivity via service nodeport, custom namespace | 
-| sctp Test Connectivity Connectivity between client and server connect a client pod to a server pod via Service Node Port Default namespace | Pod to pod connectivity via service nodeport, default namespace | 
+| [sctp] Negative - Sctp disabled Client Server Connection Should NOT start a server pod | Negative test: when the sctp module is not enabled, verifies that the connectivity is not working. | 
+| [sctp] Test Connectivity Connectivity between client and server Connectivity Test Custom namespace | Pod to pod connectivity within a custom namespace. | 
+| [sctp] Test Connectivity Connectivity between client and server Connectivity Test Custom namespace with policy | Verifies that the connectivity works when putting a matching network policy. | 
+| [sctp] Test Connectivity Connectivity between client and server Connectivity Test Custom namespace with policy no port | Verifies that a blocking network policy stops the connectivity. | 
+| [sctp] Test Connectivity Connectivity between client and server Connectivity Test Default namespace | Pod to pod connectivity, default namespace. | 
+| [sctp] Test Connectivity Connectivity between client and server Connectivity Test Default namespace with policy | Verifies that the connectivity works when putting a matching network policy, default namespace. | 
+| [sctp] Test Connectivity Connectivity between client and server Connectivity Test Default namespace with policy no port | Verifies that a blocking network policy stops the connectivity, default namespace. | 
+| [sctp] Test Connectivity Connectivity between client and server Kernel Module is loaded | Check that the kernel module is loaded | 
+| [sctp] Test Connectivity Connectivity between client and server Should connect a client pod to a server pod. Feature LatencySensitive Active | Check that pod 2 pod connectivity works with the LatencySensitive Feature activated | 
+| [sctp] Test Connectivity Connectivity between client and server connect a client pod to a server pod via Service ClusterIP Custom namespace | Pod to pod connectivity via service ClusterIP, custom namespace | 
+| [sctp] Test Connectivity Connectivity between client and server connect a client pod to a server pod via Service ClusterIP Default namespace | Pod to pod connectivity via service ClusterIP, default namespace | 
+| [sctp] Test Connectivity Connectivity between client and server connect a client pod to a server pod via Service Node Port Custom namespace | Pod to pod connectivity via service nodeport, custom namespace | 
+| [sctp] Test Connectivity Connectivity between client and server connect a client pod to a server pod via Service Node Port Default namespace | Pod to pod connectivity via service nodeport, default namespace | 
 
 ## Performance
 
 | Test Name | Description |
 | -- | ----------- |
+| [performance]  Should have kernel param rcutree.kthread | Verify that kernel param rcutree.kthread exists | 
 | [performance] Additional kernel arguments added from perfomance profile  Should set additional kernel arguments on the machine | Verifies that when specifying additional kernel arguments to the profile, those are added on the node. | 
+| [performance] CPU Management Hyper-thread aware scheduling for guaranteed pods Verify Hyper-Thread aware scheduling for guaranteed pods  HT aware scheduling on SNO cluster | Verifies Hyper-Thread aware scheduling for guaranteed pods  HT aware scheduling on SNO cluster | 
+| [performance] CPU Management Hyper-thread aware scheduling for guaranteed pods Verify Hyper-Thread aware scheduling for guaranteed pods  HT aware scheduling on SNO cluster and Workload Partitioning enabled | Verifies Hyper-Thread aware scheduling for guaranteed pods  HT aware scheduling on SNO cluster and Workload Partitioning enabled | 
+| [performance] CPU Management Hyper-thread aware scheduling for guaranteed pods Verify Hyper-Thread aware scheduling for guaranteed pods  Number of CPU requests as multiple of SMT count allowed when HT enabled | Verifies Hyper-Thread aware scheduling for guaranteed pods  Number of CPU requests as multiple of SMT count allowed when HT enabled | 
+| [performance] CPU Management Hyper-thread aware scheduling for guaranteed pods Verify Hyper-Thread aware scheduling for guaranteed pods  Odd number of CPU requests allowed when HT disabled | Verifies Hyper-Thread aware scheduling for guaranteed pods  Odd number of CPU requests allowed when HT disabled | 
 | [performance] CPU Management Verification of configuration on the worker node  Verify CPU affinity mask, CPU reservation and CPU isolation on worker node | Verifies that CPU affinity, reservation and isolation are set correctly on the node as specified in the profile spec. | 
 | [performance] CPU Management Verification of configuration on the worker node  Verify CPU reservation on the node | When specifying reserved CPUs, verifies that they don't belong to the allocatable list. | 
 | [performance] CPU Management Verification of configuration on the worker node  Verify rcu_nocbs kernel argument on the node | Checks that the node has rcu_nocbs kernel argument applied | 
@@ -143,6 +167,8 @@ The cnf tests instrument each different feature required by CNF. Following, a de
 | [performance] CPU Management when pod runs with the CPU load balancing runtime class  should disable CPU load balancing for CPU's used by the pod | Checks that the runtime will disable the CPU load balancing for the guaranteed pod with the specific runtime class and annotation | 
 | [performance] CPU Management when reserved CPUs specified  should run infra containers on reserved CPUs | Checks that when reserved CPUs are specified then infra containers are run on the reserved CPUs | 
 | [performance] CPU Management when strict NUMA aligment is requested  should reject pods which request integral CPUs not aligned with machine SMT level | Checks that when strict NUMA aligment is requested, pods which request integral CPUs not aligned with machine SMT level are rejected | 
+| [performance] Checking IRQBalance settings Verify irqbalance configuration handling Should not overwrite the banned CPU set on tuned restart | Verify that irqbalance configuration handling not overwrites the banned CPU set on tuned restart | 
+| [performance] Checking IRQBalance settings Verify irqbalance configuration handling Should store empty cpu mask in the backup file | Verify that irqbalance configuration handling stores empty cpu mask in the backup file | 
 | [performance] Create second performance profiles on a cluster  Verifies that cluster can have multiple profiles | Verifies that multiple performance profiles can be applied to the cluster. | 
 | [performance] KubeletConfig experimental annotation should override system-reserved memory | Verifies that it possible to override system-reserved memory via experimental annotation | 
 | [performance] Latency Test with the cyclictest image should succeed | Run the cyclictest with parameters specified via environment variables and validated that the maximum latency between a thread's intended wake-up time and the time at which it actually wakes up is below the value specified under the CYCLICTEST_MAXIMUM_LATENCY environment variable | 
@@ -157,6 +183,7 @@ The cnf tests instrument each different feature required by CNF. Following, a de
 | [performance] Pre boot tuning adjusted by tuned   stalld daemon is running as sched_fifo | Validates that the stalld service runs as sched_fifo | 
 | [performance] Pre boot tuning adjusted by tuned   stalld daemon is running on the host | Checks that the stalld daemon is running on the host | 
 | [performance] RPS configuration Should have the correct RPS configuration | Validates that old and newly created vnics should have the RPS mask that excludes CPUs used by guaranteed pod | 
+| [performance] RPS configuration Should not have RPS configuration set when realtime workload hint is explicitly set | Validates that when realtime workload hint is explicitly set, RPS configuration should not be set | 
 | [performance] Tuned CRs generated from profile  Node should point to right tuned profile | Validates that the active tuned profile under the node should point to the tuned profile generate by the performance-addon-operator | 
 | [performance] Tuned CRs generated from profile  Should have the expected name for tuned from the profile owner object | Checks that the PAO generates the tuned resources with the expected name | 
 | [performance] Tuned kernel parameters  Should contain configuration injected through openshift-node-performance profile | Checks that the node has kernel arguments that should be injected via tuned | 
@@ -194,21 +221,51 @@ The cnf tests instrument each different feature required by CNF. Following, a de
 | [ptp] PTP configuration verifications Should check that all nodes are running at least one replica of linuxptp-daemon | Checks if the linuxptp-daemon is running on all the nodes. | 
 | [ptp] PTP configuration verifications Should check that operator is deployed | Checks if the ptp operator is deployed. | 
 | [ptp] PTP configuration verifications Should check whether PTP operator appropriate resource exists | Checks if the ptp operator CRDs exist on the cluster. | 
-| [ptp] PTP e2e tests PTP Interfaces discovery Can provide a profile with higher priority | Checks if when applying a profile with higher priority then it is used. | 
-| [ptp] PTP e2e tests PTP Interfaces discovery PTP daemon apply match rule based on nodeLabel | Checks if the ptp daemon applies the correct profile based on the node labels. | 
-| [ptp] PTP e2e tests PTP Interfaces discovery Slave can sync to master | Checks if the ptp slave syncs with the master. | 
-| [ptp] PTP e2e tests PTP Interfaces discovery The interfaces support ptp can be discovered correctly | Checks if the interfaces supporting ptp are discovered correctly. | 
-| [ptp] PTP e2e tests PTP Interfaces discovery The virtual interfaces should be not discovered by ptp | Checks that the virtual interfaces are not used by the ptp daemon | 
+| [ptp] PTP configuration verifications Should check whether PTP operator needs to enable PTP events | Checks whether PTP operator needs to enable PTP events | 
+| [ptp] PTP e2e tests PTP ClockSync Can provide a profile with higher priority | Checks that ptp operator can provide a profile with higher priority | 
+| [ptp] PTP e2e tests PTP ClockSync Downstream slave can sync to BC master | Checks that downstream slave can sync to BC master | 
+| [ptp] PTP e2e tests PTP ClockSync PTP daemon apply match rule based on nodeLabel | Checks that PTP daemon apply match rule based on nodeLabel | 
+| [ptp] PTP e2e tests PTP ClockSync Slave can sync to master | Checks that Slave can sync to master | 
+| [ptp] PTP e2e tests PTP Interfaces discovery Should retrieve the details of hardwares for the Ptp | Checks that PTP Interfaces discovery retrieves the details of hardwares for the Ptp | 
+| [ptp] PTP e2e tests PTP Interfaces discovery The interfaces supporting ptp can be discovered correctly | Checks if the interfaces supporting ptp are discovered correctly. | 
+| [ptp] PTP e2e tests PTP Reboot discovery The slave node is rebooted and discovered and in sync | Checks that the slave node is rebooted and discovered and in sync | 
 | [ptp] PTP e2e tests PTP metric is present on slave | Checks that the metrics related to ptp are produced by the slave. | 
-| ptp PTP socket sharing between pods Negative - run pmc in a new unprivileged pod on the slave node Should not be able to use the uds | Verifies that ptp uds socket cannot be used by an unprivileged pod on the slave node | 
-| ptp PTP socket sharing between pods Run pmc in a new pod on the slave node Should be able to sync using a uds | Verifies that ptp uds socket is shared between pods on the slave node | 
-| ptp Test Offset PTP configuration verifications PTP time diff between Grandmaster and Slave should be in range -100ms and 100ms | Verifies that the time diff between master & slave is below 100 ms. | 
-| ptp prometheus Metrics reported by PTP pods Should all be reported by prometheus | Verifies that the PTP metrics are reported. | 
+| [ptp] PTP e2e tests PTP socket sharing between pods Negative - run pmc in a new unprivileged pod on the slave node Should not be able to use the uds | Verifies that ptp uds socket cannot be used by an unprivileged pod on the slave node | 
+| [ptp] PTP e2e tests PTP socket sharing between pods Run pmc in a new pod on the slave node Should be able to sync using a uds | Verifies that ptp uds socket is shared between pods on the slave node | 
+| [ptp] PTP e2e tests Running with event enabled Should check for ptp events  | Checks for ptp events | 
+| [ptp] PTP e2e tests Running with fifo scheduling Should check whether using fifo scheduling | Checks whether using fifo scheduling | 
+| [ptp] PTP e2e tests prometheus Metrics reported by PTP pods Should all be reported by prometheus | Verifies that the PTP metrics are reported. | 
 
 ## Others
 
 | Test Name | Description |
 | -- | ----------- |
+| [bondcni] bond over macvlan should be able to create pod with bond interface over macvlan interfaces | Verifies bond interface on top of macvlan interfaces is created correctly | 
+| [fec] Expose resource on the node should show resources under the node | Verifies that the sriov-fec operator is able to create and expose virtual functions from the acc100 accelerator card | 
+| [gatekeeper] constraints should apply constraints | Verifies that creating a gatekeeper constraint template and constraint will cause a pod to be rejected. | 
+| [gatekeeper] mutation should apply mutations by order | Verifies that gatekeeper mutations are applied by order | 
+| [gatekeeper] mutation should avoid mutating existing metadata info(labels/annotations) | Verifies that gatekeeper will not mutate an objects label/annotation if it already exists | 
+| [gatekeeper] mutation should be able to add metadata info(labels/annotations) | Verifies that gatekeeper is able to mutate an object by adding a label/annotation to it | 
+| [gatekeeper] mutation should be able to match by any match category | Verifies that gatekeeper is able to match objects by mutation policy matching categories | 
+| [gatekeeper] mutation should be able to update mutation policy | Verifies that gatekeeper mutation policy can be updated and apply the updated mutation | 
+| [gatekeeper] mutation should not apply mutations policies after deletion | Verifies that gatekeeper will not apply mutations from a deleted mutation policy | 
+| [gatekeeper] operator should be able to select mutation namespaces | Verifies that gatekeeper operator is able to select mutation enabled namespaces | 
+| [ovs_qos] ovs_qos_egress validate egress QoS limitation Test limitations are correctly applied {"Connectivity":"Host Pod to Host Pod"} | Test egress limitation between 2 pods on the hostNetwork | 
+| [ovs_qos] ovs_qos_egress validate egress QoS limitation Test limitations are correctly applied {"Connectivity":"Host Pod to SDN Pod"} | Test egress limitation between a hostNetwork pod and an SDN pod | 
+| [ovs_qos] ovs_qos_egress validate egress QoS limitation Test limitations are correctly applied {"Connectivity":"SDN Pod to SDN Pod"} | Test egress limitation between 2 SDN pods | 
+| [ovs_qos] ovs_qos_egress validate egress QoS limitation Test limitations are not applied within the same node {"Connectivity":"Host Pod to SDN Pod"} | Test egress limitation between a hostNetwork pod and an SDN pod on the same node does not limit | 
+| [ovs_qos] ovs_qos_egress validate egress QoS limitation Test limitations are not applied within the same node {"Connectivity":"SDN Pod to SDN Pod"} | Test egress limitation between a SDN pod and an SDN pod on the same node does not limit | 
+| [ovs_qos] ovs_qos_egress validate egress QoS limitation Validate MCO applied egress MachineConfig on the relevant nodes | Validate that the egress MachineConfig is applied correctly and present in the ovs database | 
+| [ovs_qos] ovs_qos_egress validate egress QoS limitation Validate MCO removed egress MachineConfig and disabled QOS limitation on the relevant nodes | Validate that egress MachineConfig was removed correctly and QoS removed from ovs port | 
+| [ovs_qos] ovs_qos_ingress validate ingress QoS limitation Test limitations are correctly applied {"Connectivity":"Host Pod to Host Pod"} | Test ingress limitation between 2 pods on the hostNetwork | 
+| [ovs_qos] ovs_qos_ingress validate ingress QoS limitation Test limitations are correctly applied {"Connectivity":"Host Pod to SDN Pod"} | Test ingress limitation between a hostNetwork pod and an SDN pod | 
+| [ovs_qos] ovs_qos_ingress validate ingress QoS limitation Test limitations are correctly applied {"Connectivity":"SDN Pod to SDN Pod"} | Test ingress limitation between 2 SDN pods | 
+| [ovs_qos] ovs_qos_ingress validate ingress QoS limitation Test limitations are not applied within the same node {"Connectivity":"Host Pod to SDN Pod"} | Test ingress limitation between a hostNetwork pod and an SDN pod on the same node does not limit | 
+| [ovs_qos] ovs_qos_ingress validate ingress QoS limitation Test limitations are not applied within the same node {"Connectivity":"SDN Pod to SDN Pod"} | Test ingress limitation between a SDN pod and an SDN pod on the same node does not limit | 
+| [ovs_qos] ovs_qos_ingress validate ingress QoS limitation Validate MCO applied ingress MachineConfig on the relevant nodes | Validate that the ingress MachineConfig is applied correctly and present in the ovs database | 
+| [ovs_qos] ovs_qos_ingress validate ingress QoS limitation Validate MCO removed ingress MachineConfig and disabled QOS limitation on the relevant nodes | Validate that ingress MachineConfig was removed correctly and QoS removed from ovs interface | 
+| [s2i] VFS allocated for l2fw application Validate the build Should forward and receive packets from a pod running l2fw application base on a image created by building config | Verifies that the l2fw application inside a pod is able to receive and send packets using an image built via the build pipeline. | 
+| [s2i] restoring configuration should restore the cluster to the original status | Verifies that the cluster state is restored after running the dpdk tests. | 
 | [serial][disruptive][scheduler] numaresources scheduler removal on a live cluster when removing the topology aware scheduler from a live cluster [case:1][tier1] should keep existing workloads running | Check that scheduler unavailability does not affect running workloads | 
 | [serial][disruptive][scheduler] numaresources scheduler removal on a live cluster when removing the topology aware scheduler from a live cluster [case:2][tier1] should keep new scheduled workloads pending | Checks that the secondary scheduler unavailability prevents new workload to go running | 
 | [serial][disruptive][scheduler] numaresources scheduler restart on a live cluster when restarting the topology aware scheduler in a live cluster [case:1][tier2] should schedule any pending workloads submitted while the scheduler was unavailable | Checks that workload is scheduled when the secondary scheduler is available again | 
@@ -241,40 +298,17 @@ The cnf tests instrument each different feature required by CNF. Following, a de
 | [serial][disruptive][scheduler] numaresources workload unschedulable with zero suitable nodes [tier2][unsched] a deployment with multiple guaranteed pods resources that doesn't fit at the NUMA level | Checks the NUMA-aware scheduler will handle deployments whose pods cannot fit with NUMA-level alignment | 
 | [serial][disruptive][slow] numaresources configuration management cluster has at least one suitable node [reboot_required][slow] can change kubeletconfig and controller should adapt | Checks the NUMA-aware scheduler reacts properly to kubelet configuration changes | 
 | [serial][disruptive][slow] numaresources configuration management cluster has at least one suitable node [reboot_required][slow][images][tier2] should be able to modify the configurable values under the NUMAResourcesOperator and NUMAResourcesScheduler CR | Checks the NUMA-aware scheduler reacts properly to configuration changes | 
+| [sro] Apply the chart as a configmap for SRO to use should exist in the configmap object | Test the usage of a configmap to provide charts for SRO recipes | 
+| [sro] Apply the special resource CR to build the OOT driver should have a oot driver imagestream built | Test the out of tree driver build by SRO | 
+| [sro] Apply the special resource CR to build the OOT driver should have the driver built inside the container | Test the drivers exist in the created driver container by SRO | 
+| [sro] Build source out of tree driver for SRO using Should have the source driver image as imageStream | Test a Source Container build as input for the SRO build recipe | 
+| [tuningcni] tuningcni over bond pods with sysctls over bond should be able to ping each other | Bonded interfaces with tuned sysctls should be able to ping | 
+| [tuningcni] tuningcni over macvlan pods with sysctl's over macvlan should be able to ping each other | Tuned macvlan pods should be able to ping | 
+| [tuningcni] tuningcni over macvlan should be able to create pod with sysctls over macvlan | Should be able to create pod with tuned macvlan interface | 
 | [vrf]  Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap {"IPStack":"ipv4"} | Verifies that it's possible to configure within the same node 1 VRF that overlaps pod's network + 2 non overlapping VRF on top of mac-vlan cni which is based on top of default route node's interface. Connectivity ICMP test. | 
-| bondcni bond over macvlan should be able to create pod with bond interface over macvlan interfaces | Verifies bond interface on top of macvlan interfaces is created correctly | 
-| fec Expose resource on the node should show resources under the node | Verifies that the sriov-fec operator is able to create and expose virtual functions from the acc100 accelerator card | 
-| gatekeeper constraints should apply constraints | Verifies that creating a gatekeeper constraint template and constraint will cause a pod to be rejected. | 
-| gatekeeper mutation should apply mutations by order | Verifies that gatekeeper mutations are applied by order | 
-| gatekeeper mutation should avoid mutating existing metadata info(labels/annotations) | Verifies that gatekeeper will not mutate an objects label/annotation if it already exists | 
-| gatekeeper mutation should be able to add metadata info(labels/annotations) | Verifies that gatekeeper is able to mutate an object by adding a label/annotation to it | 
-| gatekeeper mutation should be able to match by any match category | Verifies that gatekeeper is able to match objects by mutation policy matching categories | 
-| gatekeeper mutation should be able to update mutation policy | Verifies that gatekeeper mutation policy can be updated and apply the updated mutation | 
-| gatekeeper mutation should not apply mutations policies after deletion | Verifies that gatekeeper will not apply mutations from a deleted mutation policy | 
-| gatekeeper operator should be able to select mutation namespaces | Verifies that gatekeeper operator is able to select mutation enabled namespaces | 
+| [xt_u32] Negative - xt_u32 disabled Should NOT create an iptable rule | Negative test: when the xt_u32 module is not enabled, appling an iptables rule that utilize the module should fail. | 
+| [xt_u32] Validate the module is enabled and works Should create an iptables rule inside a pod that has the module enabled | Verifies that an iptables rule that utilize xt_u32 module can be applied successfully in a pod that has the module enabled. | 
 | metallb MetalLB contains incorrect data Correct and incorrect MetalLB resources coexist should have correct statuses | Verifies a correct metallb resource can coexist with an incorrect metallb resource | 
 | metallb MetalLB contains incorrect data MetalLB has incorrect name should not be reconciled | Verifies a metallb with an incorrect name is not reconciled successfuly | 
 | metallb MetalLB deploy should have MetalLB pods in running state | Verifies a metallb installation has a metallb pod in running state | 
-| ovs_qos ovs_qos_egress validate egress QoS limitation Test limitations are correctly applied {"Connectivity":"Host Pod to Host Pod"} | Test egress limitation between 2 pods on the hostNetwork | 
-| ovs_qos ovs_qos_egress validate egress QoS limitation Test limitations are correctly applied {"Connectivity":"Host Pod to SDN Pod"} | Test egress limitation between a hostNetwork pod and an SDN pod | 
-| ovs_qos ovs_qos_egress validate egress QoS limitation Test limitations are correctly applied {"Connectivity":"SDN Pod to SDN Pod"} | Test egress limitation between 2 SDN pods | 
-| ovs_qos ovs_qos_egress validate egress QoS limitation Test limitations are not applied within the same node {"Connectivity":"Host Pod to SDN Pod"} | Test egress limitation between a hostNetwork pod and an SDN pod on the same node does not limit | 
-| ovs_qos ovs_qos_egress validate egress QoS limitation Test limitations are not applied within the same node {"Connectivity":"SDN Pod to SDN Pod"} | Test egress limitation between a SDN pod and an SDN pod on the same node does not limit | 
-| ovs_qos ovs_qos_egress validate egress QoS limitation Validate MCO applied egress MachineConfig on the relevant nodes | Validate that the egress MachineConfig is applied correctly and present in the ovs database | 
-| ovs_qos ovs_qos_egress validate egress QoS limitation Validate MCO removed egress MachineConfig and disabled QOS limitation on the relevant nodes | Validate that egress MachineConfig was removed correctly and QoS removed from ovs port | 
-| ovs_qos ovs_qos_ingress validate ingress QoS limitation Test limitations are correctly applied {"Connectivity":"Host Pod to Host Pod"} | Test ingress limitation between 2 pods on the hostNetwork | 
-| ovs_qos ovs_qos_ingress validate ingress QoS limitation Test limitations are correctly applied {"Connectivity":"Host Pod to SDN Pod"} | Test ingress limitation between a hostNetwork pod and an SDN pod | 
-| ovs_qos ovs_qos_ingress validate ingress QoS limitation Test limitations are correctly applied {"Connectivity":"SDN Pod to SDN Pod"} | Test ingress limitation between 2 SDN pods | 
-| ovs_qos ovs_qos_ingress validate ingress QoS limitation Test limitations are not applied within the same node {"Connectivity":"Host Pod to SDN Pod"} | Test ingress limitation between a hostNetwork pod and an SDN pod on the same node does not limit | 
-| ovs_qos ovs_qos_ingress validate ingress QoS limitation Test limitations are not applied within the same node {"Connectivity":"SDN Pod to SDN Pod"} | Test ingress limitation between a SDN pod and an SDN pod on the same node does not limit | 
-| ovs_qos ovs_qos_ingress validate ingress QoS limitation Validate MCO applied ingress MachineConfig on the relevant nodes | Validate that the ingress MachineConfig is applied correctly and present in the ovs database | 
-| ovs_qos ovs_qos_ingress validate ingress QoS limitation Validate MCO removed ingress MachineConfig and disabled QOS limitation on the relevant nodes | Validate that ingress MachineConfig was removed correctly and QoS removed from ovs interface | 
-| sro Apply the chart as a configmap for SRO to use should exist in the configmap object | Test the usage of a configmap to provide charts for SRO recipes | 
-| sro Apply the special resource CR to build the OOT driver should have a oot driver imagestream built | Test the out of tree driver build by SRO | 
-| sro Apply the special resource CR to build the OOT driver should have the driver built inside the container | Test the drivers exist in the created driver container by SRO | 
-| sro Build source out of tree driver for SRO using Should have the source driver image as imageStream | Test a Source Container build as input for the SRO build recipe | 
-| tuningcni tuningcni over macvlan pods with sysctl's over macvlan should be able to ping each other | Tuned macvlan pods should be able to ping | 
-| tuningcni tuningcni over macvlan should be able to create pod with sysctls over macvlan | Should be able to create pod with tuned macvlan interface | 
-| xt_u32 Negative - xt_u32 disabled Should NOT create an iptable rule | Negative test: when the xt_u32 module is not enabled, appling an iptables rule that utilize the module should fail. | 
-| xt_u32 Validate the module is enabled and works Should create an iptables rule inside a pod that has the module enabled | Verifies that an iptables rule that utilize xt_u32 module can be applied successfully in a pod that has the module enabled. | 
 

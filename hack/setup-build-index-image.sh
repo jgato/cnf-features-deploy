@@ -21,7 +21,7 @@ do
           success=1
           break
    fi
-
+   iterations=$((iterations+1))
    sleep $sleep_time
 done
 
@@ -71,13 +71,13 @@ spec:
 
 
           git clone --single-branch --branch OPERATOR_RELEASES https://github.com/openshift/special-resource-operator.git
-          cd special-resource-operator/bundle/OPERATOR_VERSION/
+          cd special-resource-operator/bundle/SRO_VERSION/
           podman build -f bundle.Dockerfile --tag image-registry.openshift-image-registry.svc:5000/openshift-marketplace/special-resource-operator-bundle:latest .
           podman push image-registry.openshift-image-registry.svc:5000/openshift-marketplace/special-resource-operator-bundle:latest --tls-verify=false
           cd ../../..
 
           git clone --single-branch --branch OPERATOR_RELEASES https://github.com/openshift/cluster-nfd-operator.git
-          cd cluster-nfd-operator/manifests/OPERATOR_VERSION/
+          cd cluster-nfd-operator/manifests/NFD_VERSION/
           podman build -f bundle.Dockerfile --tag image-registry.openshift-image-registry.svc:5000/openshift-marketplace/cluster-nfd-operator-bundle:latest .
           podman push image-registry.openshift-image-registry.svc:5000/openshift-marketplace/cluster-nfd-operator-bundle:latest --tls-verify=false
           cd ../../..
@@ -113,7 +113,10 @@ spec:
 jobdefinition=$(sed "s#OPERATOR_VERSION#${OPERATOR_VERSION}#" <<< "$jobdefinition")
 jobdefinition=$(sed "s#OPERATOR_RELEASES#${OPERATOR_RELEASE}#" <<< "$jobdefinition")
 jobdefinition=$(sed "s#GATEKEEPER_VERSION#${GATEKEEPER_VERSION}#" <<< "$jobdefinition")
+jobdefinition=$(sed "s#SRO_VERSION#${SRO_VERSION}#" <<< "$jobdefinition")
+jobdefinition=$(sed "s#NFD_VERSION#${NFD_VERSION}#" <<< "$jobdefinition")
 
+${OC_TOOL} label ns openshift-marketplace --overwrite pod-security.kubernetes.io/enforce=privileged
 
 jobdefinition="${jobdefinition} secretName: ${dockercgf}"
 echo "$jobdefinition"
@@ -130,6 +133,7 @@ do
           success=1
           break
    fi
+   iterations=$((iterations+1))
    sleep $sleep_time
 done
 
@@ -178,9 +182,11 @@ do
        pod_name=$(${OC_TOOL} -n openshift-marketplace get pod | grep ci-index | awk '{print $1}')
        ${OC_TOOL} -n openshift-marketplace delete po $pod_name
    fi
-
+   iterations=$((iterations+1))
    sleep $sleep_time
 done
+
+${OC_TOOL} label ns openshift-marketplace --overwrite pod-security.kubernetes.io/enforce=baseline
 
 if [[ $success -eq 1 ]]; then
   echo "[INFO] index image pod running"

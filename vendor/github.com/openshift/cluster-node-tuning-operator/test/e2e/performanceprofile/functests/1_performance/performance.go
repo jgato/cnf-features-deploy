@@ -2,7 +2,6 @@ package __performance
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -15,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/node/v1beta1"
+	nodev1 "k8s.io/api/node/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,6 +31,7 @@ import (
 	"github.com/openshift/cluster-node-tuning-operator/pkg/performanceprofile/controller/performanceprofile/components"
 	"github.com/openshift/cluster-node-tuning-operator/pkg/performanceprofile/controller/performanceprofile/components/machineconfig"
 	componentprofile "github.com/openshift/cluster-node-tuning-operator/pkg/performanceprofile/controller/performanceprofile/components/profile"
+	profileutil "github.com/openshift/cluster-node-tuning-operator/pkg/performanceprofile/controller/performanceprofile/components/profile"
 	testutils "github.com/openshift/cluster-node-tuning-operator/test/e2e/performanceprofile/functests/utils"
 	testclient "github.com/openshift/cluster-node-tuning-operator/test/e2e/performanceprofile/functests/utils/client"
 	"github.com/openshift/cluster-node-tuning-operator/test/e2e/performanceprofile/functests/utils/cluster"
@@ -295,39 +295,30 @@ var _ = Describe("[rfe_id:27368][performance]", func() {
 			if profile.Spec.CPU == nil || profile.Spec.CPU.Reserved != nil {
 				return
 			}
+			if profile.Spec.WorkloadHints != nil && profile.Spec.WorkloadHints.RealTime != nil &&
+				!*profile.Spec.WorkloadHints.RealTime && !profileutil.IsRpsEnabled(profile) {
+				return
+			}
 
 			expectedRPSCPUs, err := cpuset.Parse(string(*profile.Spec.CPU.Reserved))
 			Expect(err).ToNot(HaveOccurred())
-			ociHookPath := filepath.Join("/rootfs", machineconfig.OCIHooksConfigDir, machineconfig.OCIHooksConfig)
-			Expect(err).ToNot(HaveOccurred())
 			for _, node := range workerRTNodes {
-				// Verify the OCI RPS hook uses the correct RPS mask
-				hooksConfig, err := nodes.ExecCommandOnMachineConfigDaemon(&node, []string{"cat", ociHookPath})
-				Expect(err).ToNot(HaveOccurred())
-
-				var hooks map[string]interface{}
-				err = json.Unmarshal(hooksConfig, &hooks)
-				Expect(err).ToNot(HaveOccurred())
-				hook := hooks["hook"].(map[string]interface{})
-				Expect(hook).ToNot(BeNil())
-				args := hook["args"].([]interface{})
-				Expect(len(args)).To(Equal(2), "unexpected arguments: %v", args)
-
-				rpsCPUs, err := components.CPUMaskToCPUSet(args[1].(string))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(rpsCPUs).To(Equal(expectedRPSCPUs), "the hook rps mask is different from the reserved CPUs")
-
 				// Verify the systemd RPS service uses the correct RPS mask
 				cmd := []string{"sed", "-n", "s/^ExecStart=.*echo \\([A-Fa-f0-9]*\\) .*/\\1/p", "/rootfs/etc/systemd/system/update-rps@.service"}
 				serviceRPSCPUs, err := nodes.ExecCommandOnNode(cmd, &node)
 				Expect(err).ToNot(HaveOccurred())
 
-				rpsCPUs, err = components.CPUMaskToCPUSet(serviceRPSCPUs)
+				rpsCPUs, err := components.CPUMaskToCPUSet(serviceRPSCPUs)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(rpsCPUs).To(Equal(expectedRPSCPUs), "the service rps mask is different from the reserved CPUs")
 
 				// Verify all host network devices have the correct RPS mask
-				cmd = []string{"find", "/rootfs/sys/devices", "-type", "f", "-name", "rps_cpus", "-exec", "cat", "{}", ";"}
+				if profileutil.IsRpsEnabled(profile) {
+					cmd = []string{"find", "/rootfs/sys/devices", "-type", "f", "-name", "rps_cpus", "-exec", "cat", "{}", ";"}
+				} else {
+					cmd = []string{"find", "/rootfs/sys/devices/virtual", "-type", "f", "-name", "rps_cpus", "-exec", "cat", "{}", ";"}
+				}
+
 				devsRPS, err := nodes.ExecCommandOnNode(cmd, &node)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -337,6 +328,7 @@ var _ = Describe("[rfe_id:27368][performance]", func() {
 					Expect(rpsCPUs).To(Equal(expectedRPSCPUs), "a host device rps mask is different from the reserved CPUs")
 				}
 
+				// TODO - probably remove
 				// Verify all node pod network devices have the correct RPS mask
 				nodePods := &corev1.PodList{}
 				listOptions := &client.ListOptions{
@@ -347,13 +339,25 @@ var _ = Describe("[rfe_id:27368][performance]", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, pod := range nodePods.Items {
-					cmd := []string{"find", "/sys/devices", "-type", "f", "-name", "rps_cpus", "-exec", "cat", "{}", ";"}
+					cmd := []string{"find", "/sys/devices/virtual", "-type", "f", "-name", "rps_cpus", "-exec", "cat", "{}", ";"}
 					devsRPS, err := pods.WaitForPodOutput(testclient.K8sClient, &pod, cmd)
 					for _, devRPS := range strings.Split(strings.Trim(string(devsRPS), "\n"), "\n") {
 						rpsCPUs, err = components.CPUMaskToCPUSet(devRPS)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(rpsCPUs).To(Equal(expectedRPSCPUs), pod.Name+" has a device rps mask different from the reserved CPUs")
 					}
+				}
+			}
+		})
+		It("Should not have RPS configuration set when realtime workload hint is explicitly set", func() {
+
+			if profile.Spec.WorkloadHints != nil && profile.Spec.WorkloadHints.RealTime != nil &&
+				!*profile.Spec.WorkloadHints.RealTime && !profileutil.IsRpsEnabled(profile) {
+				for _, node := range workerRTNodes {
+					// Verify the systemd RPS services were not created
+					cmd := []string{"ls", "/rootfs/etc/systemd/system/update-rps@.service"}
+					_, err := nodes.ExecCommandOnNode(cmd, &node)
+					Expect(err).To(HaveOccurred())
 				}
 			}
 		})
@@ -568,7 +572,7 @@ var _ = Describe("[rfe_id:27368][performance]", func() {
 			Expect(kubeletConfig.Spec.MachineConfigPoolSelector.MatchLabels[machineconfigv1.MachineConfigRoleLabelKey]).Should(Equal(newRole))
 			Expect(kubeletConfig.Spec.KubeletConfig.Raw).Should(ContainSubstring("restricted"), "Can't find value in KubeletConfig")
 
-			runtimeClass := &v1beta1.RuntimeClass{}
+			runtimeClass := &nodev1.RuntimeClass{}
 			err = testclient.GetWithRetry(context.TODO(), configKey, runtimeClass)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("cannot find RuntimeClass profile object %s", runtimeClass.Name))
 			Expect(runtimeClass.Handler).Should(Equal(machineconfig.HighPerformanceRuntime))
@@ -1018,6 +1022,14 @@ var _ = Describe("[rfe_id:27368][performance]", func() {
 			})
 		})
 	})
+
+	It("[test_id:54083] Should have kernel param rcutree.kthread", func() {
+		for _, node := range workerRTNodes {
+			cmdline, err := nodes.ExecCommandOnMachineConfigDaemon(&node, []string{"cat", "/proc/cmdline"})
+			Expect(err).ToNot(HaveOccurred(), "Failed to read /proc/cmdline")
+			Expect(string(cmdline)).To(ContainSubstring("rcutree.kthread_prio=11"), "Boot Parameters should contain rctree.kthread_prio=11")
+		}
+	})
 })
 
 func verifyV1alpha1Conversion(v1alpha1Profile *performancev1alpha1.PerformanceProfile, v1Profile *performancev1.PerformanceProfile) error {
@@ -1173,6 +1185,16 @@ func verifyV2Conversion(v2Profile *performancev2.PerformanceProfile, v1Profile *
 			if string(*specCPU.Isolated) != string(*v1Profile.Spec.CPU.Isolated) {
 				return fmt.Errorf("isolated CPUs are different [v2: %s, v1: %s]",
 					*specCPU.Isolated, *v1Profile.Spec.CPU.Isolated)
+			}
+		}
+
+		if (specCPU.Offlined == nil) != (v1Profile.Spec.CPU.Offlined == nil) {
+			return fmt.Errorf("spec CPUs Isolated field is different")
+		}
+		if specCPU.Offlined != nil {
+			if string(*specCPU.Offlined) != string(*v1Profile.Spec.CPU.Offlined) {
+				return fmt.Errorf("Offlined CPUs are different [v2: %s, v1: %s]",
+					*specCPU.Offlined, *v1Profile.Spec.CPU.Offlined)
 			}
 		}
 

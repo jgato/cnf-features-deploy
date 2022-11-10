@@ -15,11 +15,13 @@ import (
 	igntypes "github.com/coreos/ignition/v2/config/v3_2/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 	"k8s.io/utils/pointer"
 
 	performancev2 "github.com/openshift/cluster-node-tuning-operator/pkg/apis/performanceprofile/v2"
 	"github.com/openshift/cluster-node-tuning-operator/pkg/performanceprofile/controller/performanceprofile/components"
 	profilecomponent "github.com/openshift/cluster-node-tuning-operator/pkg/performanceprofile/controller/performanceprofile/components/profile"
+	profileutil "github.com/openshift/cluster-node-tuning-operator/pkg/performanceprofile/controller/performanceprofile/components/profile"
 	machineconfigv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 )
 
@@ -42,14 +44,15 @@ const (
 	// OCIHooksConfigDir is the default directory for the OCI hooks
 	OCIHooksConfigDir = "/etc/containers/oci/hooks.d"
 	// OCIHooksConfig file contains the low latency hooks configuration
-	OCIHooksConfig     = "99-low-latency-hooks.json"
-	ociTemplateRPSMask = "RPSMask"
-	udevRulesDir       = "/etc/udev/rules.d"
-	udevRpsRules       = "99-netdev-rps.rules"
+	ociTemplateRPSMask   = "RPSMask"
+	udevRulesDir         = "/etc/udev/rules.d"
+	udevRpsRules         = "99-netdev-rps.rules"
+	udevPhysicalRpsRules = "99-netdev-physical-rps.rules"
 	// scripts
-	hugepagesAllocation = "hugepages-allocation"
-	ociHooks            = "low-latency-hooks"
-	setRPSMask          = "set-rps-mask"
+	hugepagesAllocation       = "hugepages-allocation"
+	setCPUsOffline            = "set-cpus-offline"
+	setRPSMask                = "set-rps-mask"
+	clearIRQBalanceBannedCPUs = "clear-irqbalance-banned-cpus"
 )
 
 const (
@@ -66,6 +69,7 @@ const (
 )
 
 const (
+	systemdServiceIRQBalance  = "irqbalance.service"
 	systemdServiceKubelet     = "kubelet.service"
 	systemdServiceTypeOneshot = "oneshot"
 	systemdTargetMultiUser    = "multi-user.target"
@@ -76,6 +80,7 @@ const (
 	environmentHugepagesSize  = "HUGEPAGES_SIZE"
 	environmentHugepagesCount = "HUGEPAGES_COUNT"
 	environmentNUMANode       = "NUMA_NODE"
+	environmentOfflineCpus    = "OFFLINE_CPUS"
 )
 
 const (
@@ -128,6 +133,7 @@ func GetMachineConfigName(profile *performancev2.PerformanceProfile) string {
 }
 
 func getIgnitionConfig(profile *performancev2.PerformanceProfile) (*igntypes.Config, error) {
+	var scripts []string
 	ignitionConfig := &igntypes.Config{
 		Ignition: igntypes.Ignition{
 			Version: defaultIgnitionVersion,
@@ -138,8 +144,15 @@ func getIgnitionConfig(profile *performancev2.PerformanceProfile) (*igntypes.Con
 	}
 
 	// add script files under the node /usr/local/bin directory
+	if profileutil.IsRpsEnabled(profile) || profile.Spec.WorkloadHints == nil ||
+		profile.Spec.WorkloadHints.RealTime == nil || *profile.Spec.WorkloadHints.RealTime {
+		scripts = []string{hugepagesAllocation, setRPSMask, setCPUsOffline, clearIRQBalanceBannedCPUs}
+	} else {
+		// realtime is explicitly disabled by workload hint
+		scripts = []string{hugepagesAllocation, setCPUsOffline, clearIRQBalanceBannedCPUs}
+	}
 	mode := 0700
-	for _, script := range []string{hugepagesAllocation, ociHooks, setRPSMask} {
+	for _, script := range scripts {
 		dst := getBashScriptPath(script)
 		content, err := assets.Scripts.ReadFile(fmt.Sprintf("scripts/%s.sh", script))
 		if err != nil {
@@ -157,23 +170,41 @@ func getIgnitionConfig(profile *performancev2.PerformanceProfile) (*igntypes.Con
 	crioConfSnippetDst := filepath.Join(crioConfd, crioRuntimesConfig)
 	addContent(ignitionConfig, crioConfigSnippetContent, crioConfSnippetDst, &crioConfdRuntimesMode)
 
-	// add crio hooks config  under the node cri-o hook directory
-	crioHooksConfigsMode := 0644
-	ociHooksConfigContent, err := GetOCIHooksConfigContent(OCIHooksConfig, profile)
-	if err != nil {
-		return nil, err
-	}
-	ociHookConfigDst := filepath.Join(OCIHooksConfigDir, OCIHooksConfig)
-	addContent(ignitionConfig, ociHooksConfigContent, ociHookConfigDst, &crioHooksConfigsMode)
+	// do not add RPS handling when realtime is explicitly disabled by workload hint
+	if profileutil.IsRpsEnabled(profile) || profile.Spec.WorkloadHints == nil ||
+		profile.Spec.WorkloadHints.RealTime == nil || *profile.Spec.WorkloadHints.RealTime {
 
-	// add rps udev rule
-	rpsRulesMode := 0644
-	rpsRulesContent, err := assets.Configs.ReadFile(filepath.Join("configs", udevRpsRules))
-	if err != nil {
-		return nil, err
+		// add rps udev rule
+		rpsRulesMode := 0644
+		var rpsRulesContent []byte
+		if profileutil.IsPhysicalRpsEnabled(profile) {
+			rpsRulesContent, err = assets.Configs.ReadFile(filepath.Join("configs", udevPhysicalRpsRules))
+		} else {
+			rpsRulesContent, err = assets.Configs.ReadFile(filepath.Join("configs", udevRpsRules))
+		}
+		if err != nil {
+			return nil, err
+		}
+		rpsRulesDst := filepath.Join(udevRulesDir, udevRpsRules)
+		addContent(ignitionConfig, rpsRulesContent, rpsRulesDst, &rpsRulesMode)
+
+		if profile.Spec.CPU != nil && profile.Spec.CPU.Reserved != nil {
+			rpsMask, err := components.CPUListToMaskList(string(*profile.Spec.CPU.Reserved))
+			if err != nil {
+				return nil, err
+			}
+
+			rpsService, err := getSystemdContent(getRPSUnitOptions(rpsMask))
+			if err != nil {
+				return nil, err
+			}
+
+			ignitionConfig.Systemd.Units = append(ignitionConfig.Systemd.Units, igntypes.Unit{
+				Contents: &rpsService,
+				Name:     getSystemdService("update-rps@"),
+			})
+		}
 	}
-	rpsRulesDst := filepath.Join(udevRulesDir, udevRpsRules)
-	addContent(ignitionConfig, rpsRulesContent, rpsRulesDst, &rpsRulesMode)
 
 	if profile.Spec.HugePages != nil {
 		for _, page := range profile.Spec.HugePages.Pages {
@@ -204,22 +235,34 @@ func getIgnitionConfig(profile *performancev2.PerformanceProfile) (*igntypes.Con
 		}
 	}
 
-	if profile.Spec.CPU != nil && profile.Spec.CPU.Reserved != nil {
-		rpsMask, err := components.CPUListToMaskList(string(*profile.Spec.CPU.Reserved))
+	if profile.Spec.CPU.Offlined != nil {
+		offlinedCPUSList, err := cpuset.Parse(string(*profile.Spec.CPU.Offlined))
 		if err != nil {
 			return nil, err
 		}
-
-		rpsService, err := getSystemdContent(getRPSUnitOptions(rpsMask))
+		offlinedCPUSstring := components.ListToString(offlinedCPUSList.ToSlice())
+		offlineCPUsService, err := getSystemdContent(getOfflineCPUs(offlinedCPUSstring))
 		if err != nil {
 			return nil, err
 		}
 
 		ignitionConfig.Systemd.Units = append(ignitionConfig.Systemd.Units, igntypes.Unit{
-			Contents: &rpsService,
-			Name:     getSystemdService("update-rps@"),
+			Contents: &offlineCPUsService,
+			Enabled:  pointer.BoolPtr(true),
+			Name:     getSystemdService(setCPUsOffline),
 		})
 	}
+
+	clearIRQBalanceBannedCPUsService, err := getSystemdContent(getIRQBalanceBannedCPUsOptions())
+	if err != nil {
+		return nil, err
+	}
+
+	ignitionConfig.Systemd.Units = append(ignitionConfig.Systemd.Units, igntypes.Unit{
+		Contents: &clearIRQBalanceBannedCPUsService,
+		Enabled:  pointer.BoolPtr(true),
+		Name:     getSystemdService(clearIRQBalanceBannedCPUs),
+	})
 
 	return ignitionConfig, nil
 }
@@ -281,6 +324,27 @@ func GetHugepagesSizeKilobytes(hugepagesSize performancev2.HugePageSize) (string
 	}
 }
 
+func getIRQBalanceBannedCPUsOptions() []*unit.UnitOption {
+	return []*unit.UnitOption{
+		// [Unit]
+		// Description
+		unit.NewUnitOption(systemdSectionUnit, systemdDescription, "Clear the IRQBalance Banned CPU mask early in the boot"),
+		// Before
+		unit.NewUnitOption(systemdSectionUnit, systemdBefore, systemdServiceKubelet),
+		unit.NewUnitOption(systemdSectionUnit, systemdBefore, systemdServiceIRQBalance),
+		// [Service]
+		// Type
+		unit.NewUnitOption(systemdSectionService, systemdType, systemdServiceTypeOneshot),
+		// RemainAfterExit
+		unit.NewUnitOption(systemdSectionService, systemdRemainAfterExit, systemdTrue),
+		// ExecStart
+		unit.NewUnitOption(systemdSectionService, systemdExecStart, getBashScriptPath(clearIRQBalanceBannedCPUs)),
+		// [Install]
+		// WantedBy
+		unit.NewUnitOption(systemdSectionInstall, systemdWantedBy, systemdTargetMultiUser),
+	}
+}
+
 func getHugepagesAllocationUnitOptions(hugepagesSize string, hugepagesCount int32, numaNode int32) []*unit.UnitOption {
 	return []*unit.UnitOption{
 		// [Unit]
@@ -299,6 +363,27 @@ func getHugepagesAllocationUnitOptions(hugepagesSize string, hugepagesCount int3
 		unit.NewUnitOption(systemdSectionService, systemdRemainAfterExit, systemdTrue),
 		// ExecStart
 		unit.NewUnitOption(systemdSectionService, systemdExecStart, getBashScriptPath(hugepagesAllocation)),
+		// [Install]
+		// WantedBy
+		unit.NewUnitOption(systemdSectionInstall, systemdWantedBy, systemdTargetMultiUser),
+	}
+}
+
+func getOfflineCPUs(offlineCpus string) []*unit.UnitOption {
+	return []*unit.UnitOption{
+		// [Unit]
+		// Description
+		unit.NewUnitOption(systemdSectionUnit, systemdDescription, fmt.Sprintf("Set cpus offline: %s", offlineCpus)),
+		// Before
+		unit.NewUnitOption(systemdSectionUnit, systemdBefore, systemdServiceKubelet),
+		// Environment
+		unit.NewUnitOption(systemdSectionService, systemdEnvironment, getSystemdEnvironment(environmentOfflineCpus, offlineCpus)),
+		// Type
+		unit.NewUnitOption(systemdSectionService, systemdType, systemdServiceTypeOneshot),
+		// RemainAfterExit
+		unit.NewUnitOption(systemdSectionService, systemdRemainAfterExit, systemdTrue),
+		// ExecStart
+		unit.NewUnitOption(systemdSectionService, systemdExecStart, getBashScriptPath(setCPUsOffline)),
 		// [Install]
 		// WantedBy
 		unit.NewUnitOption(systemdSectionInstall, systemdWantedBy, systemdTargetMultiUser),

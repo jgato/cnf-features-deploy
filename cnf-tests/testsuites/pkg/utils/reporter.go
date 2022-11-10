@@ -6,6 +6,7 @@ import (
 	gkopv1alpha "github.com/gatekeeper/gatekeeper-operator/api/v1alpha1"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	sriovNamespaces "github.com/k8snetworkplumbingwg/sriov-network-operator/test/util/namespaces"
+	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	gkv1alpha "github.com/open-policy-agent/gatekeeper/apis/mutations/v1alpha1"
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	ocpbuildv1 "github.com/openshift/api/build/v1"
@@ -15,8 +16,10 @@ import (
 	perfUtils "github.com/openshift/cluster-node-tuning-operator/test/e2e/performanceprofile/functests/utils"
 	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	ptpv1 "github.com/openshift/ptp-operator/api/v1"
-	ptpUtils "github.com/openshift/ptp-operator/test/utils"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	multinetpolicyv1 "github.com/k8snetworkplumbingwg/multi-networkpolicy/pkg/apis/k8s.cni.cncf.io/v1beta1"
+	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	n3000v1 "github.com/openshift-kni/cnf-features-deploy/cnf-tests/testsuites/pkg/apis/N3000/api/v1"
 	sriovfecv2 "github.com/openshift-kni/cnf-features-deploy/cnf-tests/testsuites/pkg/apis/sriov-fec/api/v2"
@@ -30,23 +33,28 @@ func NewReporter(reportPath string) (*k8sreporter.KubernetesReporter, error) {
 		ptpv1.AddToScheme(s)
 		mcfgv1.AddToScheme(s)
 		performancev2.SchemeBuilder.AddToScheme(s)
+		netattdefv1.SchemeBuilder.AddToScheme(s)
 		sriovv1.AddToScheme(s)
 		gkv1alpha.AddToScheme(s)
 		gkopv1alpha.AddToScheme(s)
 		nfdv1.AddToScheme(s)
 		srov1beta1.AddToScheme(s)
+		metallbv1beta1.AddToScheme(s)
 		ocpv1.Install(s)
 		ocpbuildv1.Install(s)
+		multinetpolicyv1.AddToScheme(s)
+		netattdefv1.AddToScheme(s)
 	}
 
 	namespacesToDump := map[string]string{
 		namespaces.PTPOperator:                  "ptp",
 		namespaces.SRIOVOperator:                "sriov",
-		NamespaceTesting:                        "other",
 		perfUtils.NamespaceTesting:              "performance",
 		namespaces.DpdkTest:                     "dpdk",
 		sriovNamespaces.Test:                    "sriov",
-		ptpUtils.NamespaceTesting:               "ptp",
+		MultiNetworkPolicyNamespaceX:            "multinetworkpolicy",
+		MultiNetworkPolicyNamespaceY:            "multinetworkpolicy",
+		MultiNetworkPolicyNamespaceZ:            "multinetworkpolicy",
 		namespaces.SCTPTest:                     "sctp",
 		namespaces.Default:                      "sctp",
 		namespaces.XTU32Test:                    "xt_u32",
@@ -64,6 +72,9 @@ func NewReporter(reportPath string) (*k8sreporter.KubernetesReporter, error) {
 		NfdNamespace:                            "sro",
 		namespaces.SpecialResourceOperator:      "sro",
 		namespaces.SroTestNamespace:             "sro",
+		namespaces.SroTestNamespace:             "sro",
+		namespaces.BondTestNamespace:            "bondcni",
+		namespaces.MetalLBOperator:              "metallb",
 	}
 
 	crds := []k8sreporter.CRData{
@@ -88,6 +99,9 @@ func NewReporter(reportPath string) (*k8sreporter.KubernetesReporter, error) {
 		{Cr: &nfdv1.NodeFeatureDiscoveryList{}},
 		{Cr: &ocpbuildv1.BuildConfigList{}, Namespace: &namespaces.SroTestNamespace},
 		{Cr: &ocpbuildv1.BuildList{}, Namespace: &namespaces.SroTestNamespace},
+		{Cr: &multinetpolicyv1.MultiNetworkPolicyList{}},
+		{Cr: &netattdefv1.NetworkAttachmentDefinitionList{}},
+		{Cr: &metallbv1beta1.MetalLBList{}},
 	}
 
 	skipByNamespace := func(ns string) bool {

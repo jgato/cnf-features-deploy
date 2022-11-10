@@ -8,8 +8,8 @@ export failures=()
 
 #env variables needed for the containerized version
 export TEST_POD_IMAGES_REGISTRY="${TEST_POD_IMAGES_REGISTRY:-quay.io/openshift-kni/}"
-export TEST_POD_CNF_TEST_IMAGE="${TEST_POD_CNF_TEST_IMAGE:-cnf-tests:4.11}"
-export TEST_POD_DPDK_TEST_IMAGE="${TEST_POD_DPDK_TEST_IMAGE:-dpdk:4.11}"
+export TEST_POD_CNF_TEST_IMAGE="${TEST_POD_CNF_TEST_IMAGE:-cnf-tests:4.12}"
+export TEST_POD_DPDK_TEST_IMAGE="${TEST_POD_DPDK_TEST_IMAGE:-dpdk:4.12}"
 
 export TEST_EXECUTION_IMAGE=$TEST_POD_IMAGES_REGISTRY$TEST_POD_CNF_TEST_IMAGE
 export SCTPTEST_HAS_NON_CNF_WORKERS="${SCTPTEST_HAS_NON_CNF_WORKERS:-true}"
@@ -22,7 +22,6 @@ export LATENCY_TEST_RUN=${LATENCY_TEST_RUN:-false}
 
 export IS_OPENSHIFT="${IS_OPENSHIFT:-true}"
 
-
 echo "Running local tests"
 
 
@@ -32,7 +31,10 @@ elif [ "$FEATURES" == "" ]; then
 	echo "No FEATURES provided"
   exit 1
 else
-  FOCUS="-ginkgo.focus="$(echo "$FEATURES" | tr ' ' '|')
+  FOCUS="-ginkgo.focus="\\[$(echo "$FEATURES" | sed -e 's/ /\\]\|\\[/g')\\]
+  if [ "$FOCUS_TESTS" != "" ]; then
+    FOCUS="-ginkgo.focus="$(echo "$FOCUS_TESTS" | tr ' ' '|')
+  fi
   echo "Focusing on $FOCUS"
 fi
 
@@ -51,6 +53,8 @@ if [ "$TESTS_IN_CONTAINER" == "true" ]; then
   cp -f "$KUBECONFIG" _cache/kubeconfig
   echo "Running dockerized version via $TEST_EXECUTION_IMAGE"
 
+  features="$(echo "$FEATURES" | tr ' ' '|')"
+
   env_vars="-e CLEAN_PERFORMANCE_PROFILE=false \
   -e CNF_TESTS_IMAGE=$TEST_POD_CNF_TEST_IMAGE \
   -e DPDK_TESTS_IMAGE=$TEST_POD_DPDK_TEST_IMAGE \
@@ -58,7 +62,9 @@ if [ "$TESTS_IN_CONTAINER" == "true" ]; then
   -e KUBECONFIG=/kubeconfig/kubeconfig \
   -e SCTPTEST_HAS_NON_CNF_WORKERS=$SCTPTEST_HAS_NON_CNF_WORKERS \
   -e TEST_SUITES=$TEST_SUITES \
-  -e IS_OPENSHIFT=$IS_OPENSHIFT"
+  -e IS_OPENSHIFT=$IS_OPENSHIFT \
+  -e FEATURES=$features \
+  -e OO_INSTALL_NAMESPACE=$OO_INSTALL_NAMESPACE"
 
   # add latency tests env variable to the cnf-tests container
   if [ "$LATENCY_TEST_RUN" == "true" ];then

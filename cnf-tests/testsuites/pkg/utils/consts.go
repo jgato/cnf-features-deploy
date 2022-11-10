@@ -1,6 +1,8 @@
 package utils
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+)
 
 const (
 	// LabelRole contains the key for the role label
@@ -17,8 +19,6 @@ const (
 const (
 	// NamespaceMachineConfigOperator contains the namespace of the machine-config-opereator
 	NamespaceMachineConfigOperator = "openshift-machine-config-operator"
-	// NamespaceTesting contains the name of the testing namespace
-	NamespaceTesting = "cnf-features-testing"
 	// NamespaceOvn contains the namespace of OVN related resources
 	NamespaceOvn = "openshift-ovn-kubernetes"
 	// OperatorNamespace contains the name of the openshift operator namespace
@@ -158,4 +158,13 @@ const (
 	SroSpecialResourceCRDName = "specialresources.sro.openshift.io"
 	// SroOperatorDeploymentName special resource operator deployment name
 	SroOperatorDeploymentName = "special-resource-controller-manager"
+)
+
+const (
+	// MultiNetworkPolicyNamespaceX main namespace used for multi-networkpolicy tests
+	MultiNetworkPolicyNamespaceX = "sriov-conformance-testing-x"
+	// MultiNetworkPolicyNamespaceY ausiliary namespace used to validate cross namespace scenarios
+	MultiNetworkPolicyNamespaceY = "sriov-conformance-testing-y"
+	// MultiNetworkPolicyNamespaceZ extra namespace for complex scenarios
+	MultiNetworkPolicyNamespaceZ = "sriov-conformance-testing-z"
 )

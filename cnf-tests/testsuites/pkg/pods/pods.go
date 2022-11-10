@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift-kni/cnf-features-deploy/cnf-tests/testsuites/pkg/namespaces"
+	goclient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/openshift-kni/cnf-features-deploy/cnf-tests/testsuites/pkg/client"
 	"github.com/openshift-kni/cnf-features-deploy/cnf-tests/testsuites/pkg/images"
 
@@ -90,6 +93,16 @@ func RedefinePodWithNetwork(pod *corev1.Pod, networksSpec string) *corev1.Pod {
 	return pod
 }
 
+// RedefineWithLabel add a label to the ObjectMeta.Labels field of the pod, instantiating
+// the map if necessary. Override the previous label it is already present.
+func RedefineWithLabel(pod *corev1.Pod, key, value string) *corev1.Pod {
+	if pod.ObjectMeta.Labels == nil {
+		pod.ObjectMeta.Labels = map[string]string{}
+	}
+	pod.ObjectMeta.Labels[key] = value
+	return pod
+}
+
 // RedefineAsPrivileged updates the pod definition to be privileged
 func RedefineAsPrivileged(pod *corev1.Pod, containerName string) (*corev1.Pod, error) {
 	c := containerByName(pod, containerName)
@@ -131,13 +144,13 @@ sleep INF`}, []string{},
 	pod.Spec.Containers[0].Resources.Requests = corev1.ResourceList{}
 	pod.Spec.Containers[0].Resources.Requests["memory"] = resource.MustParse("1Gi")
 	pod.Spec.Containers[0].Resources.Requests["hugepages-1Gi"] = resource.MustParse("1Gi")
-	pod.Spec.Containers[0].Resources.Requests["cpu"] = *resource.NewQuantity(int64(1), resource.DecimalSI)
+	pod.Spec.Containers[0].Resources.Requests["cpu"] = *resource.NewQuantity(int64(2), resource.DecimalSI)
 
 	// Resource limit
 	pod.Spec.Containers[0].Resources.Limits = corev1.ResourceList{}
 	pod.Spec.Containers[0].Resources.Limits["memory"] = resource.MustParse("1Gi")
 	pod.Spec.Containers[0].Resources.Limits["hugepages-1Gi"] = resource.MustParse("1Gi")
-	pod.Spec.Containers[0].Resources.Limits["cpu"] = *resource.NewQuantity(int64(1), resource.DecimalSI)
+	pod.Spec.Containers[0].Resources.Limits["cpu"] = *resource.NewQuantity(int64(2), resource.DecimalSI)
 
 	// Hugepages volume mount
 	pod.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{{Name: "hugepages", MountPath: "/dev/hugepages"}}
@@ -153,6 +166,97 @@ sleep INF`}, []string{},
 				Medium: corev1.StorageMediumHugePages}}}}
 
 	return pod
+}
+
+func CreateDPDKWorkload(nodeSelector map[string]string, command string, image string, additionalCapabilities []corev1.Capability, mac string) (*corev1.Pod, error) {
+	resources := map[corev1.ResourceName]resource.Quantity{
+		corev1.ResourceName("hugepages-1Gi"): resource.MustParse("2Gi"),
+		corev1.ResourceMemory:                resource.MustParse("1Gi"),
+		corev1.ResourceCPU:                   resource.MustParse("4"),
+	}
+
+	// Enable NET_RAW is required by mellanox nics as they are using the netdevice driver
+	// NET_RAW was removed from the default capabilities
+	// https://access.redhat.com/security/cve/cve-2020-14386
+	capabilities := []corev1.Capability{"IPC_LOCK", "SYS_RESOURCE", "NET_RAW"}
+	if additionalCapabilities != nil {
+		capabilities = append(capabilities, additionalCapabilities...)
+	}
+
+	container := corev1.Container{
+		Name:  "dpdk",
+		Image: image,
+		Command: []string{
+			"/bin/bash",
+			"-c",
+			command,
+		},
+		SecurityContext: &corev1.SecurityContext{
+			RunAsUser: pointer.Int64Ptr(0),
+			Capabilities: &corev1.Capabilities{
+				Add: capabilities,
+			},
+		},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "RUN_TYPE",
+				Value: "testpmd",
+			},
+		},
+		Resources: corev1.ResourceRequirements{
+			Requests: resources,
+			Limits:   resources,
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "hugepages",
+				MountPath: "/mnt/huge",
+			},
+		},
+	}
+
+	dpdkPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "dpdk-",
+			Namespace:    namespaces.DpdkTest,
+			Labels: map[string]string{
+				"app": "dpdk",
+			},
+			Annotations: map[string]string{
+				"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[{
+					"name": "test-dpdk-network",
+					"mac": "%s",
+					"namespace": "%s"
+				}]`, mac, namespaces.DpdkTest),
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{container},
+			Volumes: []corev1.Volume{
+				{
+					Name: "hugepages",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumHugePages},
+					},
+				},
+			},
+		},
+	}
+
+	if len(nodeSelector) > 0 {
+		dpdkPod.Spec.NodeSelector = nodeSelector
+	}
+
+	if nodeSelector != nil && len(nodeSelector) > 0 {
+		if dpdkPod.Spec.NodeSelector == nil {
+			dpdkPod.Spec.NodeSelector = make(map[string]string)
+		}
+		for k, v := range nodeSelector {
+			dpdkPod.Spec.NodeSelector[k] = v
+		}
+	}
+
+	return CreateAndStart(dpdkPod)
 }
 
 // WaitForDeletion waits until the pod will be removed from the cluster
@@ -195,9 +299,36 @@ func WaitForPhase(cs *testclient.ClientSet, pod *corev1.Pod, phaseType corev1.Po
 	})
 }
 
+func CreateAndStart(pod *corev1.Pod) (*corev1.Pod, error) {
+
+	pod, err := client.Client.Pods(pod.Namespace).
+		Create(context.Background(), pod, metav1.CreateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("cannot create pod [%s]: %w", pod.Name, err)
+	}
+
+	err = WaitForCondition(client.Client, pod, corev1.ContainersReady, corev1.ConditionTrue, 3*time.Minute)
+	if err != nil {
+		return nil, fmt.Errorf("error while waiting pod [%s] to be ready: %w", pod.Name, err)
+	}
+
+	err = client.Client.Get(context.Background(),
+		goclient.ObjectKey{Name: pod.Name, Namespace: pod.Namespace}, pod)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get just created pod [%s]: %w", pod.Name, err)
+	}
+
+	return pod, nil
+}
+
 // GetLog connects to a pod and fetches log
 func GetLog(p *corev1.Pod) (string, error) {
-	req := testclient.Client.Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{})
+	return GetLogForContainer(p, p.Spec.Containers[0].Name)
+}
+
+// GetLog connects to a pod and fetches log from a specific container
+func GetLogForContainer(p *corev1.Pod, containerName string) (string, error) {
+	req := testclient.Client.Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{Container: containerName})
 	log, err := req.Stream(context.Background())
 	if err != nil {
 		return "", fmt.Errorf("cannot get logs for pod %s: %w", p.Name, err)
@@ -214,8 +345,17 @@ func GetLog(p *corev1.Pod) (string, error) {
 	return buf.String(), nil
 }
 
-// ExecCommand runs command in the pod and returns buffer output
+// ExecCommand runs command in the pod's firts container and returns buffer output
 func ExecCommand(cs *testclient.ClientSet, pod corev1.Pod, command []string) (bytes.Buffer, error) {
+	if len(pod.Spec.Containers) == 0 {
+		return *bytes.NewBuffer([]byte{}), fmt.Errorf("pod [%s] has no containers", pod.Name)
+	}
+
+	return ExecCommandInContainer(cs, pod, pod.Spec.Containers[0].Name, command)
+}
+
+// ExecCommand runs command in the specified container and returns buffer output
+func ExecCommandInContainer(cs *testclient.ClientSet, pod corev1.Pod, containerName string, command []string) (bytes.Buffer, error) {
 	var buf bytes.Buffer
 	req := client.Client.CoreV1Interface.RESTClient().
 		Post().
@@ -224,7 +364,7 @@ func ExecCommand(cs *testclient.ClientSet, pod corev1.Pod, command []string) (by
 		Name(pod.Name).
 		SubResource("exec").
 		VersionedParams(&corev1.PodExecOptions{
-			Container: pod.Spec.Containers[0].Name,
+			Container: containerName,
 			Command:   command,
 			Stdin:     true,
 			Stdout:    true,
@@ -244,7 +384,7 @@ func ExecCommand(cs *testclient.ClientSet, pod corev1.Pod, command []string) (by
 		Tty:    true,
 	})
 	if err != nil {
-		return buf, fmt.Errorf("remove command %v error %w", command, err)
+		return buf, fmt.Errorf("remote command %v error [%w]. output [%s]", command, err, buf.String())
 	}
 
 	return buf, nil

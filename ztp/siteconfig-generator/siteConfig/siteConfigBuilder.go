@@ -90,6 +90,11 @@ func (scbuilder *SiteConfigBuilder) validateSiteConfig(siteConfigTemp SiteConfig
 		}
 
 		clusters[siteConfigTemp.Metadata.Name+"/"+cluster.ClusterName] = true
+		for _, node := range cluster.Nodes {
+			if err := node.IronicInspect.IsValid(); err != nil {
+				return errors.New("Error: " + err.Error() + siteConfigTemp.Metadata.Name + "/" + cluster.ClusterName + "/" + node.HostName)
+			}
+		}
 	}
 	return nil
 }
@@ -158,6 +163,10 @@ func (scbuilder *SiteConfigBuilder) getClusterCRs(clusterId int, siteConfigTemp 
 						clusterCRs = append(clusterCRs, instantiatedCR)
 					}
 				} else {
+					if kind == "BareMetalHost" {
+						// Ironic inspection is enabled by default, delete the inspect annotation if it is not disabled
+						instantiatedCR = deleteInspectAnnotation(instantiatedCR)
+					}
 					clusterCRs = append(clusterCRs, instantiatedCR)
 				}
 			}
@@ -320,7 +329,7 @@ func populateSpec(filePath string, instantiatedCR map[string]interface{}) error 
 	return nil
 }
 
-func (scbuilder *SiteConfigBuilder) getWorkloadManifest(cpuSet string) (string, interface{}, error) {
+func (scbuilder *SiteConfigBuilder) getWorkloadManifest(cpuSet string, role string) (string, interface{}, error) {
 	filePath := scbuilder.scBuilderExtraManifestPath + "/" + workloadPath
 	crio, err := ReadExtraManifestResourceFile(filePath + "/" + workloadCrioFile)
 	if err != nil {
@@ -336,15 +345,21 @@ func (scbuilder *SiteConfigBuilder) getWorkloadManifest(cpuSet string) (string, 
 	kubeletStr := string(kubelet)
 	kubeletStr = strings.Replace(kubeletStr, cpuset, cpuSet, -1)
 	kubeletStr = base64.StdEncoding.EncodeToString([]byte(kubeletStr))
-	worklod, err := ReadExtraManifestResourceFile(filePath + "/" + workloadFile)
+	workload, err := ReadExtraManifestResourceFile(filePath + "/" + workloadFile)
 	if err != nil {
 		return "", nil, err
 	}
-	workloadStr := string(worklod)
+	workloadStr := string(workload)
 	workloadStr = strings.Replace(workloadStr, "$crio", crioStr, -1)
 	workloadStr = strings.Replace(workloadStr, "$k8s", kubeletStr, -1)
+	workloadStr = strings.Replace(workloadStr, "$mcp", role, -1)
 
-	return workloadFile, reflect.ValueOf(workloadStr).Interface(), nil
+	workloadFileParts := append(strings.Split(workloadFile, "-"), "")
+	copy(workloadFileParts[2:], workloadFileParts[1:])
+	workloadFileParts[1] = role
+	workloadFileForRole := strings.Join(workloadFileParts, "-")
+
+	return workloadFileForRole, reflect.ValueOf(workloadStr).Interface(), nil
 }
 
 func (scbuilder *SiteConfigBuilder) getExtraManifest(dataMap map[string]interface{}, clusterSpec Clusters) (map[string]interface{}, error) {
@@ -403,21 +418,24 @@ func (scbuilder *SiteConfigBuilder) getExtraManifest(dataMap map[string]interfac
 	}
 
 	// Adding workload partitions MC only for SNO clusters.
-	if clusterSpec.ClusterType == SNO && len(clusterSpec.Nodes) > 0 {
-		cpuSet := clusterSpec.Nodes[0].Cpuset
-		if cpuSet != "" {
-			k, v, err := scbuilder.getWorkloadManifest(cpuSet)
-			if err != nil {
-				errStr := fmt.Sprintf("Error could not read WorkloadManifest %s %s\n", clusterSpec.ClusterName, err)
-				return dataMap, errors.New(errStr)
-			} else {
-				data, err := addZTPAnnotationToManifest(v.(string))
+	if clusterSpec.ClusterType == SNO {
+		for node := range clusterSpec.Nodes {
+			cpuSet := clusterSpec.Nodes[node].Cpuset
+			role := clusterSpec.Nodes[node].Role
+			if cpuSet != "" {
+				k, v, err := scbuilder.getWorkloadManifest(cpuSet, role)
 				if err != nil {
-					return dataMap, err
+					errStr := fmt.Sprintf("Error could not read WorkloadManifest %s %s\n", clusterSpec.ClusterName, err)
+					return dataMap, errors.New(errStr)
+				} else {
+					data, err := addZTPAnnotationToManifest(v.(string))
+					if err != nil {
+						return dataMap, err
+					}
+					dataMap[k] = data
+					// Exclude the workload manifest
+					doNotMerge[k] = true
 				}
-				dataMap[k] = data
-				// Exclude the workload manifest
-				doNotMerge[k] = true
 			}
 		}
 	}
@@ -463,11 +481,14 @@ func (scbuilder *SiteConfigBuilder) getExtraManifest(dataMap map[string]interfac
 		return dataMap, err
 	}
 
-	// merge the pre-defined manifests
-	dataMap, err = MergeManifests(dataMap, doNotMerge)
-	if err != nil {
-		log.Printf("Error could not merge extra-manifest %s.%s %s\n", clusterSpec.ClusterName, clusterSpec.ExtraManifestPath, err)
-		return dataMap, err
+	// check if user wants to merge machineconfigs
+	if clusterSpec.MergeDefaultMachineConfigs {
+		// merge the pre-defined manifests
+		dataMap, err = MergeManifests(dataMap, doNotMerge)
+		if err != nil {
+			log.Printf("Error could not merge extra-manifest %s.%s %s\n", clusterSpec.ClusterName, clusterSpec.ExtraManifestPath, err)
+			return dataMap, err
+		}
 	}
 
 	return dataMap, nil

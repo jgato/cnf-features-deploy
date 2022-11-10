@@ -97,3 +97,9 @@ spec:
         storage:
           pvc:
             claim: "image-registry-pvc"
+    - fileName: HardwareEvent.yaml
+      policyName: "config-bare-metal-events-policy"
+      spec:
+        nodeSelector: {}
+        transportHost: "http://hw-event-publisher-service.openshift-bare-metal-events.svc.cluster.local:9043"
+        logLevel: "debug"

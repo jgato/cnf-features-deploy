@@ -18,7 +18,7 @@ LABEL io.k8s.description="Platform for building DPDK workloads" \
 RUN yum groupinstall -y "Development Tools"
 
 # The second yum install is here to overcome versions mismatch between rpms
-RUN yum install -y wget python3\
+RUN yum install -y wget python3 \
  numactl \
  numactl-devel \
  make \
@@ -32,6 +32,7 @@ RUN yum install -y wget python3\
  lua \
  git \
  gcc \
+ pciutils \
  expect && \
  yum install -y libibverbs-devel && \
  yum clean all
@@ -42,7 +43,11 @@ RUN cd /usr/src/ && wget http://fast.dpdk.org/rel/dpdk-${DPDK_VER}.tar.xz && tar
     cd dpdk-stable-${DPDK_VER} && \
     meson build && \
     cd build  && \
-    meson configure -Denable_docs=false && \
+    meson configure -Denable_docs=false \
+                    -Dplatform=generic \
+                    -Dmax_ethports=32 \
+                    -Dmax_numa_nodes=8 \
+                    -Dtests=false && \
     ninja && \
     ninja install && \
     echo "/usr/local/lib64" > /etc/ld.so.conf.d/dpdk.conf && \
