@@ -9,6 +9,7 @@ metadata:
     name: "{{ .Cluster.ClusterName }}"
   annotations:
     argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-options: PruneLast=true
 ---
 apiVersion: extensions.hive.openshift.io/v1beta1
 kind: AgentClusterInstall
