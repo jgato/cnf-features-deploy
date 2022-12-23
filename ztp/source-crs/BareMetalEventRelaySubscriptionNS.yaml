@@ -1,7 +1,8 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: openshift-sriov-network-operator
+  name: openshift-bare-metal-events
   annotations:
-    workload.openshift.io/allowed: management
     ran.openshift.io/ztp-deploy-wave: "2"
+  labels:
+    openshift.io/cluster-monitoring: "true"

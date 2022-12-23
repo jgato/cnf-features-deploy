@@ -77,3 +77,12 @@ spec:
               group.ice-ptp=0:f:10:*:ice-ptp.*
               [service]
               service.stalld=start,enable
+              service.chronyd=stop,disable
+    - fileName: AmqInstance.yaml
+      policyName: "config-amq-policy"
+    - fileName: HardwareEvent.yaml
+      policyName: "config-bare-metal-events-policy"
+      spec:
+        nodeSelector: {}
+        transportHost: "amqp://amq-router.amq-router.svc.cluster.local"
+        logLevel: "debug"

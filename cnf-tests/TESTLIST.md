@@ -84,6 +84,7 @@ The cnf tests instrument each different feature required by CNF. Following, a de
 
 | Test Name | Description |
 | -- | ----------- |
+| [sriov] Bond CNI integration bond cni over sriov pod with sysctl's on bond over sriov interfaces should start | Verfies a pod with bond over sriov interfaces starts correctly | 
 | [sriov] SCTP integration Test Connectivity Connectivity between client and server Should work over a SR-IOV device | SCTP connectivity test over SR-IOV vfs. | 
 | [sriov] VRF integration  Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap {"IPStack":"ipv4"} | Verifies that it's possible to configure within the same node 1 VRF that overlaps pod's network + 2 non overlapping VRF on top of SriovNetwork. Connectivity ICMP test. | 
 | [sriov] operator Custom SriovNetworkNodePolicy Configuration Create vfio-pci node policy Should be possible to create a vfio-pci resource | Verifies creating of vfio-pci resources | 
@@ -179,6 +180,7 @@ The cnf tests instrument each different feature required by CNF. Following, a de
 | [performance] Verify API Conversions  when the GloballyDisableIrqLoadBalancing field set to true should preserve the value during the v1 <-> v2 conversion | Checks that v1<->v2 conversion presereves the GloballyDisableIrqLoadBalancing field value, when the initial value was true | 
 | [performance] Verify API Conversions when the performance profile does not contain NUMA field Verifies v1 <-> v1alpha1 conversions | Checks that conversion webhooks succeeds to convert v1 <-> v1alpha1 profiles without NUMA field | 
 | [performance] Verify API Conversions when the performance profile does not contain NUMA field Verifies v1 <-> v2 conversions | Checks that conversion webhooks succeeds to convert v1 <-> v2 profiles without NUMA field | 
+| [performance] Verify containers specifications  imagePullPolicy should be ifNotPresent | Verifies that the operator pod specifies imagePullPolicy as ifNotPresent | 
 | [performance]Hugepages Huge pages support for container workloads  Huge pages support for container workloads | Verifies that huge pages are available in a container when requested. | 
 | [performance]Hugepages when NUMA node specified  should be allocated on the specifed NUMA node  | Verifies that when hugepages are specified on a given numa node in the profile are allocated to that node. | 
 | [performance]Hugepages with multiple sizes  should be supported and available for the container usage | Verifies that hugepages with different size can be configured and used by pods. | 
@@ -214,6 +216,7 @@ The cnf tests instrument each different feature required by CNF. Following, a de
 | Test Name | Description |
 | -- | ----------- |
 | [vrf]  Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap {"IPStack":"ipv4"} | Verifies that it's possible to configure within the same node 1 VRF that overlaps pod's network + 2 non overlapping VRF on top of mac-vlan cni which is based on top of default route node's interface. Connectivity ICMP test. | 
+| bondcni bond over macvlan should be able to create pod with bond interface over macvlan interfaces | Verifies bond interface on top of macvlan interfaces is created correctly | 
 | fec Expose resource on the node should show resources under the node | Verifies that the sriov-fec operator is able to create and expose virtual functions from the acc100 accelerator card | 
 | gatekeeper constraints should apply constraints | Verifies that creating a gatekeeper constraint template and constraint will cause a pod to be rejected. | 
 | gatekeeper mutation should apply mutations by order | Verifies that gatekeeper mutations are applied by order | 

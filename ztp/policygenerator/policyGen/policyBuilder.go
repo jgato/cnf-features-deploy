@@ -160,8 +160,8 @@ func (pbuilder *PolicyBuilder) getCustomResources(sFile utils.SourceFile, source
 		return resources, err
 	}
 	// Update multiple yamls structure in same file not allowed.
-	if len(yamls) > 1 && (len(sFile.Data) > 0 || len(sFile.Spec) > 0) {
-		return resources, errors.New("Update spec/data of multiple yamls structure in same file " + sFile.FileName +
+	if len(yamls) > 1 && (len(sFile.Data) > 0 || len(sFile.Spec) > 0 || len(sFile.Status) > 0) {
+		return resources, errors.New("Update spec/data/status of multiple yamls structure in same file " + sFile.FileName +
 			" not allowed. Instead separate them in multiple files")
 	} else if len(yamls) > 1 && len(sFile.Data) == 0 && len(sFile.Spec) == 0 {
 		// Append yaml structures without modify spec or data fields
@@ -328,12 +328,18 @@ func (pbuilder *PolicyBuilder) splitYamls(yamls []byte) ([][]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		resBytes, err := yaml.Marshal(resIntf)
 
-		if err != nil {
-			return nil, err
+		// Check that resIntf is not nil in order to mitigate appending an empty
+		// object as a result of redundant trailing seperator(s) "---""
+		if resIntf != nil {
+			resBytes, err := yaml.Marshal(resIntf)
+
+			if err != nil {
+				return nil, err
+			}
+
+			resources = append(resources, resBytes)
 		}
-		resources = append(resources, resBytes)
 	}
 	return resources, nil
 }
