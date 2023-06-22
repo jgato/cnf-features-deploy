@@ -23,4 +23,4 @@ status::
         name: 50-performance-openshift-node-performance-profile
       - apiVersion: machineconfiguration.openshift.io/v1
         kind: MachineConfig
-        name: 50-nto-$mcp
+        name: 50-nto-$mc

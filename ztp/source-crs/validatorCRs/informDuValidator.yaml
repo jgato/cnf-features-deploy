@@ -38,4 +38,4 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: linuxptp-daemon
-  namespace: openshift-ptp
+  namespace: openshift-pt

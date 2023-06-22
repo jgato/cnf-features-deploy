@@ -69,4 +69,4 @@ spec:
             Environment="OPENSHIFT_MAX_HOUSEKEEPING_INTERVAL_DURATION=60s"
             Environment="OPENSHIFT_EVICTION_MONITORING_PERIOD_DURATION=30s"
           name: 30-kubelet-interval-tuning.conf
-        name: kubelet.service
+        name: kubelet.servic

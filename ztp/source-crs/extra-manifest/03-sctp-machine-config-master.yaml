@@ -22,4 +22,4 @@ spec:
             source: data:text/plain;charset=utf-8,sctp
           filesystem: root
           mode: 420
-          path: /etc/modules-load.d/sctp-load.conf
+          path: /etc/modules-load.d/sctp-load.con

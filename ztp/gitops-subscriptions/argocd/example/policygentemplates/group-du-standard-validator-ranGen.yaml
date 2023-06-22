@@ -41,4 +41,4 @@ spec:
       #       - apiVersion: machineconfiguration.openshift.io/v1
       #         kind: MachineConfig
       #         # This name must match the associated PerformanceProfile name:
-      #         # name: 50-performance-${PerformanceProfile.metadata.name}
+      #         # name: 50-performance-${PerformanceProfile.metadata.name
