@@ -27,6 +27,7 @@ const inspectAnnotationPrefix = "inspect.metal3.io"
 const ZtpWarningAnnotation = "ran.openshift.io/ztp-warning"
 const ZtpDeprecationWarningAnnotationPostfix = "field-deprecation"
 const nodeLabelPrefix = "bmac.agent-install.openshift.io.node-label"
+const siteConfigAPIGroup = "ran.openshift.io"
 
 var Separator = []byte("---\n")
 
@@ -115,6 +116,10 @@ type Metadata struct {
 	Labels    map[string]string `yaml:"labels"`
 }
 
+type CrAnnotations struct {
+	Add map[string]map[string]string `yaml:"add"`
+}
+
 // Spec
 type Spec struct {
 	PullSecretRef          PullSecretRef          `yaml:"pullSecretRef"`
@@ -124,6 +129,7 @@ type Spec struct {
 	Clusters               []Clusters             `yaml:"clusters"`
 	BaseDomain             string                 `yaml:"baseDomain"`
 	CrTemplates            map[string]string      `yaml:"crTemplates"`
+	CrAnnotations          CrAnnotations          `yaml:"crAnnotations"`
 	BiosConfigRef          BiosConfigRef          `yaml:"biosConfigRef"`
 }
 
@@ -131,6 +137,15 @@ type Spec struct {
 func (site *Spec) CrTemplateSearch(kind string) (string, bool) {
 	template, ok := site.CrTemplates[kind]
 	return template, ok
+}
+
+// Lookup a specific CR Annotation for this site
+func (site *Spec) CrAnnotationSearch(kind string, action string) (map[string]string, bool) {
+	if action == "add" {
+		annotations, ok := site.CrAnnotations.Add[kind]
+		return annotations, ok
+	}
+	return nil, false
 }
 
 // Lookup bios config file path for this site
@@ -183,12 +198,15 @@ type Clusters struct {
 	BiosConfigRef          BiosConfigRef       `yaml:"biosConfigRef"`
 	ExtraManifests         ExtraManifests      `yaml:"extraManifests"`
 	CPUPartitioning        CPUPartitioningMode `yaml:"cpuPartitioningMode"`
+	SiteConfigMap          SiteConfigMap       `yaml:"siteConfigMap"`
 
 	ExtraManifestOnly bool
 	NumMasters        uint8
 	NumWorkers        uint8
 	ClusterType       string
 	CrTemplates       map[string]string `yaml:"crTemplates"`
+	CrAnnotations     CrAnnotations     `yaml:"crAnnotations"`
+	CrSuppression     []string          `yaml:"crSuppression"`
 
 	// optional: merge MachineConfigs into a single CR
 	MergeDefaultMachineConfigs bool `yaml:"mergeDefaultMachineConfigs"`
@@ -288,6 +306,18 @@ func (cluster *Clusters) CrTemplateSearch(kind string, site *Spec) (string, bool
 		return template, ok
 	}
 	return site.CrTemplateSearch(kind)
+}
+
+// Lookup a specific CR annotation for this cluster, with fallback to site
+func (cluster *Clusters) CrAnnotationSearch(kind string, action string, site *Spec) (map[string]string, bool) {
+	if action == "add" {
+		annotations, ok := cluster.CrAnnotations.Add[kind]
+		if ok {
+			return annotations, ok
+		}
+		return site.CrAnnotationSearch(kind, action)
+	}
+	return nil, false
 }
 
 // Lookup bios config file path for this cluster, with fallback to site
@@ -411,6 +441,8 @@ type Nodes struct {
 	IgnitionConfigOverride string                 `yaml:"ignitionConfigOverride"`
 	Role                   string                 `yaml:"role"`
 	CrTemplates            map[string]string      `yaml:"crTemplates"`
+	CrAnnotations          CrAnnotations          `yaml:"crAnnotations"`
+	CrSuppression          []string               `yaml:"crSuppression"`
 	BiosConfigRef          BiosConfigRef          `yaml:"biosConfigRef"`
 	DiskPartition          []DiskPartition        `yaml:"diskPartition"`
 	IronicInspect          IronicInspect          `yaml:"ironicInspect"`
@@ -422,7 +454,7 @@ func (rv *Nodes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var defaults = ValueDefaulted{
 		BootMode:              "UEFI",
 		Role:                  "master",
-		IronicInspect:         "disabled",
+		IronicInspect:         "enabled",
 		AutomatedCleaningMode: "disabled",
 	}
 
@@ -439,6 +471,18 @@ func (node *Nodes) CrTemplateSearch(kind string, cluster *Clusters, site *Spec) 
 		return template, ok
 	}
 	return cluster.CrTemplateSearch(kind, site)
+}
+
+// Lookup a specific CR annotation for this node, with fallback to cluster and site
+func (node *Nodes) CrAnnotationSearch(kind string, action string, cluster *Clusters, site *Spec) (map[string]string, bool) {
+	if action == "add" {
+		annotations, ok := node.CrAnnotations.Add[kind]
+		if ok {
+			return annotations, ok
+		}
+		return cluster.CrAnnotationSearch(kind, action, site)
+	}
+	return nil, false
 }
 
 // Return true if the NodeNetwork content is empty or not defined
@@ -493,6 +537,43 @@ type BiosConfigRef struct {
 
 // IronicInspect
 type IronicInspect string
+
+type SiteConfigMap struct {
+	Name      string            `yaml:"name"`
+	Namespace string            `yaml:"namespace"`
+	Data      map[string]string `yaml:"data"`
+}
+
+// Provide custom YAML unmarshal for SiteConfigMap which provides default values
+func (rv *SiteConfigMap) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type ValueDefaulted SiteConfigMap
+	var defaults = ValueDefaulted{
+		Namespace: "ztp-site",
+	}
+
+	out := defaults
+	err := unmarshal(&out)
+	*rv = SiteConfigMap(out)
+	return err
+}
+
+// Return true if the SiteConfigMap content is empty.
+func (cluster *Clusters) SiteConfigMapDataIsEmpty() bool {
+	if len(cluster.SiteConfigMap.Data) == 0 {
+		return true
+	}
+	return false
+}
+
+// Return true if the SiteConfigMap is not defined.
+func (cluster *Clusters) SiteConfigMapIsUndefined() bool {
+	if cluster.SiteConfigMap.Name == "" &&
+		cluster.SiteConfigMap.Namespace == "" &&
+		cluster.SiteConfigMap.Data == nil {
+		return true
+	}
+	return false
+}
 
 const (
 	inspectDisabled IronicInspect = "disabled"

@@ -25,22 +25,26 @@ type SiteConfigBuilder struct {
 func NewSiteConfigBuilder() (*SiteConfigBuilder, error) {
 	scBuilder := SiteConfigBuilder{scBuilderExtraManifestPath: localExtraManifestPath}
 
-	clusterCRsYamls, err := scBuilder.splitYamls([]byte(clusterCRs))
+	return &scBuilder, nil
+}
+
+func (scbuilder *SiteConfigBuilder) loadSourceClusterCRs(clusterCRs string) error {
+	clusterCRsYamls, err := scbuilder.splitYamls([]byte(clusterCRs))
 	if err != nil {
-		return &scBuilder, err
+		return err
 	}
-	scBuilder.SourceClusterCRs = make([]interface{}, len(clusterCRsYamls))
+	scbuilder.SourceClusterCRs = make([]interface{}, len(clusterCRsYamls))
 	for id, clusterCRsYaml := range clusterCRsYamls {
 		var clusterCR interface{}
 		err := yaml.Unmarshal(clusterCRsYaml, &clusterCR)
 
 		if err != nil {
-			return &scBuilder, err
+			return err
 		}
-		scBuilder.SourceClusterCRs[id] = clusterCR
+		scbuilder.SourceClusterCRs[id] = clusterCR
 	}
 
-	return &scBuilder, nil
+	return nil
 }
 
 func (scbuilder *SiteConfigBuilder) SetLocalExtraManifestPath(path string) {
@@ -48,6 +52,22 @@ func (scbuilder *SiteConfigBuilder) SetLocalExtraManifestPath(path string) {
 }
 
 func (scbuilder *SiteConfigBuilder) Build(siteConfigTemp SiteConfig) (map[string][]interface{}, error) {
+
+	switch apiVersion := siteConfigTemp.ApiVersion; apiVersion {
+	case siteConfigAPIV1:
+		err := scbuilder.loadSourceClusterCRs(clusterCRsV1)
+		if err != nil {
+			return nil, err
+		}
+	case siteConfigAPIV2:
+		err := scbuilder.loadSourceClusterCRs(clusterCRsV2)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, errors.New("Not valid siteConfig ApiVersion " + siteConfigTemp.ApiVersion)
+	}
+
 	clustersCRs := make(map[string][]interface{})
 
 	err := scbuilder.validateSiteConfig(siteConfigTemp)
@@ -139,6 +159,11 @@ func (scbuilder *SiteConfigBuilder) getClusterCRs(clusterId int, siteConfigTemp 
 			// node-level CR (create one for each node)
 			validNodeKinds[kind] = true
 			for ndId, node := range cluster.Nodes {
+				if suppressCrGeneration(kind, node.CrSuppression) {
+					// Skip this CR generation for this node
+					continue
+				}
+
 				instantiatedCR, err := scbuilder.instantiateCR(fmt.Sprintf("node %s in cluster %s", node.HostName, cluster.ClusterName),
 					mapSourceCR,
 					func(kind string) (string, bool) {
@@ -150,6 +175,11 @@ func (scbuilder *SiteConfigBuilder) getClusterCRs(clusterId int, siteConfigTemp 
 				)
 				if err != nil {
 					return clusterCRs, err
+				}
+
+				// Append user provided extra annotations if exist
+				if extraCRAnnotations, ok := node.CrAnnotationSearch(kind, "add", &cluster, &siteConfigTemp.Spec); ok {
+					instantiatedCR = appendCrAnnotations(extraCRAnnotations, instantiatedCR)
 				}
 
 				// BZ 2028510 -- Empty NMStateConfig causes issues and
@@ -177,6 +207,11 @@ func (scbuilder *SiteConfigBuilder) getClusterCRs(clusterId int, siteConfigTemp 
 				}
 			}
 		} else {
+			if suppressCrGeneration(kind, cluster.CrSuppression) {
+				// Skip this CR generation for this cluster
+				continue
+			}
+
 			instantiatedCR, err := scbuilder.instantiateCR(fmt.Sprintf("cluster %s", cluster.ClusterName),
 				mapSourceCR,
 				func(kind string) (string, bool) {
@@ -190,16 +225,42 @@ func (scbuilder *SiteConfigBuilder) getClusterCRs(clusterId int, siteConfigTemp 
 				return clusterCRs, err
 			}
 
+			// Append user provided extra annotations if exist
+			if extraCRAnnotations, ok := cluster.CrAnnotationSearch(kind, "add", &siteConfigTemp.Spec); ok {
+				instantiatedCR = appendCrAnnotations(extraCRAnnotations, instantiatedCR)
+			}
+
 			// cluster-level CR
 			if kind == "ConfigMap" {
-				// For ConfigMap, add all the ExtraManifest files to it before doing further instantiation:
-				data := instantiatedCR["data"]
-				if data != nil {
-					for k, v := range data.(map[string]interface{}) {
-						extraManifestMap[k] = v
+				configMapMetadata := mapSourceCR["metadata"].(map[string]interface{})
+				configMapNamespace := configMapMetadata["namespace"].(string)
+				if strings.Contains(configMapNamespace, "SiteConfigMap") {
+					// If there is no siteConfigMap specified, don't create the corresponding CR.
+					if cluster.SiteConfigMapIsUndefined() {
+						continue
 					}
+
+					// If the siteConfigMap is defined, but the name is empty, also look at the ConfigMap's
+					// data to decide on the action to take.
+					if cluster.SiteConfigMap.Name == "" {
+						if cluster.SiteConfigMapDataIsEmpty() {
+							continue
+						} else {
+							// If the name is empty, but data is present, set a default name containing the
+							// cluster's name.
+							instantiatedCR = setCrMetadataName("ztp-site-"+cluster.ClusterName, instantiatedCR)
+						}
+					}
+				} else {
+					// For ConfigMap, add all the ExtraManifest files to it before doing further instantiation:
+					data := instantiatedCR["data"]
+					if data != nil {
+						for k, v := range data.(map[string]interface{}) {
+							extraManifestMap[k] = v
+						}
+					}
+					instantiatedCR["data"] = extraManifestMap
 				}
-				instantiatedCR["data"] = extraManifestMap
 			}
 			clusterCRs = append(clusterCRs, instantiatedCR)
 		}
@@ -217,7 +278,7 @@ func (scbuilder *SiteConfigBuilder) getClusterCRs(clusterId int, siteConfigTemp 
 }
 
 func (scbuilder *SiteConfigBuilder) instantiateCR(target string, originalTemplate map[string]interface{}, overrideSearch func(kind string) (string, bool), applyTemplate func(map[string]interface{}) (map[string]interface{}, error)) (map[string]interface{}, error) {
-	// Instantiate the CR based on the original original CR
+	// Instantiate the CR based on the original CR
 	originalCR, err := applyTemplate(originalTemplate)
 	if err != nil {
 		return map[string]interface{}{}, err
@@ -245,6 +306,7 @@ func (scbuilder *SiteConfigBuilder) instantiateCR(target string, originalTemplat
 	if override["kind"] != kind {
 		return override, fmt.Errorf("Override template kind %q in %q does not match expected kind %q", override["kind"], overridePath, kind)
 	}
+
 	overriddenCR, err := applyTemplate(override)
 	if err != nil {
 		return override, err
@@ -259,20 +321,26 @@ func (scbuilder *SiteConfigBuilder) instantiateCR(target string, originalTemplat
 		return override, fmt.Errorf("Overriden template metadata in %q is not specified!", overridePath)
 	}
 
+	// After resolving the original and override templates, the name and namespace should match.
+	// If not, log a message and return the original CR. If the source CRs have multiple resources
+	// of the same type, then we need to make sure that we are applying the override to the right
+	// resource, thus we uniquely identify it by name, namespace and kind.
+	// We do not error here because the override might match another source CR.
 	for _, field := range []string{"name", "namespace"} {
 		if originalMetadata[field] != overriddenMetadata[field] {
-			return overriddenCR, fmt.Errorf("Overridden template metadata.%s %q does not match expected value %q", field, overriddenMetadata[field], originalMetadata[field])
+			log.Printf("Overridden template metadata.%s %q does not match expected value %q", field, overriddenMetadata[field], originalMetadata[field])
+			return originalCR, nil
 		}
 	}
-	originalAnnotations := originalMetadata["annotations"].(map[string]interface{})
 
+	originalAnnotations := originalMetadata["annotations"].(map[string]interface{})
 	// Sanity-check the overridden metadata annotations
 	overriddenAnnotations, ok := overriddenMetadata["annotations"].(map[string]interface{})
 	if !ok {
 		return override, fmt.Errorf("Overriden template metadata annotations in %q is not specified!", overridePath)
 	}
 
-	// Validate the the argocd annotation
+	// Validate the argocd annotation
 	argocdAnnotation := "argocd.argoproj.io/sync-wave"
 	if originalAnnotations[argocdAnnotation] != overriddenAnnotations[argocdAnnotation] {
 		return overriddenCR, fmt.Errorf("Overridden template metadata.annotations[%q] %q does not match expected value %q", argocdAnnotation, overriddenAnnotations[argocdAnnotation], originalAnnotations[argocdAnnotation])
@@ -284,26 +352,39 @@ func (scbuilder *SiteConfigBuilder) getClusterCR(clusterId int, siteConfigTemp S
 	mapIntf := make(map[string]interface{})
 
 	for k, v := range mapSourceCR {
-		if reflect.ValueOf(v).Kind() == reflect.Map {
+		switch reflect.ValueOf(v).Kind() {
+		case reflect.Map:
 			value, err := scbuilder.getClusterCR(clusterId, siteConfigTemp, v.(map[string]interface{}), nodeId)
 			if err != nil {
 				return mapIntf, err
 			}
 			mapIntf[k] = value
-		} else if reflect.ValueOf(v).Kind() == reflect.String &&
-			strings.HasPrefix(v.(string), "{{") &&
-			strings.HasSuffix(v.(string), "}}") {
-			// We can be cleaner about this, but this translation is minimally invasive for 4.10:
-			key, err := translateTemplateKey(v.(string))
-			if err != nil {
-				return nil, err
+		case reflect.Slice:
+			sliceValues := make([]interface{}, 0)
+			for _, item := range v.([]interface{}) {
+				val, err := scbuilder.getClusterCR(clusterId, siteConfigTemp, item.(map[string]interface{}), nodeId)
+				if err != nil {
+					return mapIntf, err
+				}
+				sliceValues = append(sliceValues, val)
 			}
-			valueIntf, err := siteConfigTemp.GetSiteConfigFieldValue(key, clusterId, nodeId)
+			mapIntf[k] = sliceValues
+		case reflect.String:
+			if strings.HasPrefix(v.(string), "{{") && strings.HasSuffix(v.(string), "}}") {
+				// We can be cleaner about this, but this translation is minimally invasive for 4.10:
+				key, err := translateTemplateKey(v.(string))
+				if err != nil {
+					return nil, err
+				}
+				valueIntf, err := siteConfigTemp.GetSiteConfigFieldValue(key, clusterId, nodeId)
 
-			if err == nil && valueIntf != nil && valueIntf != "" {
-				mapIntf[k] = valueIntf
+				if err == nil && valueIntf != nil && valueIntf != "" {
+					mapIntf[k] = valueIntf
+				}
+			} else {
+				mapIntf[k] = v
 			}
-		} else {
+		default:
 			mapIntf[k] = v
 		}
 	}
@@ -323,6 +404,25 @@ func translateTemplateKey(key string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("Key %q could not be translated", key)
+}
+
+func appendCrAnnotations(extraAnnotations map[string]string, givenCR map[string]interface{}) map[string]interface{} {
+	metadata, _ := givenCR["metadata"].(map[string]interface{})
+	annotations, _ := metadata["annotations"].(map[string]interface{})
+
+	for key, value := range extraAnnotations {
+		if _, found := annotations[key]; !found {
+			// It's a new annotation, adding
+			annotations[key] = value
+		}
+	}
+	return givenCR
+}
+
+func setCrMetadataName(newName string, givenCR map[string]interface{}) map[string]interface{} {
+	metadata, _ := givenCR["metadata"].(map[string]interface{})
+	metadata["name"] = newName
+	return givenCR
 }
 
 func populateSpec(filePath string, instantiatedCR map[string]interface{}) error {

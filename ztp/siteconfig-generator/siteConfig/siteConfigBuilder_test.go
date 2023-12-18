@@ -2,6 +2,7 @@ package siteConfig
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -50,6 +51,80 @@ spec:
       - NTP.server1
       - 10.16.231.22
     mergeDefaultMachineConfigs: true
+    nodes:
+      - hostName: "node1"
+        biosConfigRef:
+          filePath: "../../siteconfig-generator-kustomize-plugin/testSiteConfig/testHW.profile"
+        nodeLabels:
+          node-role.kubernetes.io/infra: ""
+          node-role.kubernetes.io/master: ""
+        bmcAddress: "idrac-virtualmedia+https://1.2.3.4/redfish/v1/Systems/System.Embedded.1"
+        bmcCredentialsName:
+          name: "name of bmcCredentials secret"
+        bootMACAddress: "00:00:00:01:20:30"
+        bootMode: "UEFI"
+        rootDeviceHints:
+          hctl: "1:2:0:0"
+        cpuset: "2-19,22-39"
+        nodeNetwork:
+          interfaces:
+            - name: eno1
+              macAddress: "00:00:00:01:20:30"
+          config:
+            interfaces:
+              - name: eno1
+                type: ethernet
+                ipv4:
+                  enabled: true
+                  dhcp: false
+        diskPartition:
+           - device: /dev/sda
+             partitions:
+               - mount_point: /var/imageregistry
+                 size: 102500
+                 start: 344844
+`
+
+const siteConfigV2Test = `
+apiVersion: ran.openshift.io/v2
+kind: SiteConfig
+metadata:
+  name: "test-site"
+  namespace: "test-site"
+spec:
+  baseDomain: "example.com"
+  pullSecretRef:
+    name: "pullSecretName"
+  clusterImageSetNameRef: "openshift-v4.14.0"
+  sshPublicKey: "ssh-rsa "
+  sshPrivateKeySecretRef:
+    name: "sshPrvKey"
+  clusters:
+  - clusterName: "cluster1"
+    clusterType: sno
+    numMasters: 1
+    networkType: "OVNKubernetes"
+    installConfigOverrides: "{\"controlPlane\":{\"hyperthreading\":\"Disabled\"}}"
+    clusterLabels:
+      group-du-sno: ""
+      common: true
+      sites : "test-site"
+    clusterNetwork:
+      - cidr: 10.128.0.0/14
+        hostPrefix: 23
+    machineNetwork:
+      - cidr: 10.16.231.0/24
+    serviceNetwork:
+      - 172.30.0.0/16
+    additionalNTPSources:
+      - NTP.server1
+      - 10.16.231.22
+    mergeDefaultMachineConfigs: true
+    siteConfigMap:
+      name: cluster1-configmap
+      namespace: ztp-zone-1
+      data:
+        key1: value1
     nodes:
       - hostName: "node1"
         biosConfigRef:
@@ -178,20 +253,92 @@ spec:
     mergeDefaultMachineConfigs: true
     nodes:
       - hostName: "node1"
+        role: "master"
         nodeNetwork:
           interfaces:
             - name: eno1
               macAddress: "00:00:00:01:20:30"
       - hostName: "node2"
+        role: "master"
         nodeNetwork:
           interfaces:
             - name: eno1
               macAddress: "00:00:00:01:20:40"
       - hostName: "node3"
+        role: "master"
         nodeNetwork:
           interfaces:
             - name: eno1
               macAddress: "00:00:00:01:20:50"
+      - hostName: "node4"
+        role: "worker"
+        nodeNetwork:
+          interfaces:
+            - name: eno1
+              macAddress: "00:00:00:01:20:60"
+      - hostName: "node5"
+        role: "worker"
+        nodeNetwork:
+          interfaces:
+            - name: eno1
+              macAddress: "00:00:00:01:20:70"
+`
+
+const siteConfigV2StandardClusterTest = `
+apiVersion: ran.openshift.io/v2
+kind: SiteConfig
+metadata:
+  name: "test-standard"
+  namespace: "test-standard"
+spec:
+  baseDomain: "example.com"
+  pullSecretRef:
+    name: "pullSecretName"
+  clusterImageSetNameRef: "openshift-v4.9.0"
+  sshPublicKey: "ssh-rsa "
+  clusters:
+  - clusterName: "cluster1"
+    apiVIP: 10.16.231.2
+    ingressVIP: 10.16.231.3
+    clusterNetwork:
+      - cidr: 10.128.0.0/14
+        hostPrefix: 23
+    machineNetwork:
+      - cidr: 10.16.231.0/24
+    serviceNetwork:
+      - 172.30.0.0/16
+    mergeDefaultMachineConfigs: true
+    nodes:
+      - hostName: "node1"
+        role: "master"
+        nodeNetwork:
+          interfaces:
+            - name: eno1
+              macAddress: "00:00:00:01:20:30"
+      - hostName: "node2"
+        role: "master"
+        nodeNetwork:
+          interfaces:
+            - name: eno1
+              macAddress: "00:00:00:01:20:40"
+      - hostName: "node3"
+        role: "master"
+        nodeNetwork:
+          interfaces:
+            - name: eno1
+              macAddress: "00:00:00:01:20:50"
+      - hostName: "node4"
+        role: "worker"
+        nodeNetwork:
+          interfaces:
+            - name: eno1
+              macAddress: "00:00:00:01:20:60"
+      - hostName: "node5"
+        role: "worker"
+        nodeNetwork:
+          interfaces:
+            - name: eno1
+              macAddress: "00:00:00:01:20:70"
 `
 
 const siteConfigDualStackStandardClusterTest = `
@@ -868,6 +1015,17 @@ func Test_SNOClusterSiteConfigBuildWithoutNetworkType(t *testing.T) {
 	filesData, err := ReadFile("testdata/siteConfigTestOutput.yaml")
 	assert.Equal(t, string(filesData), outputStr)
 }
+
+func Test_SNOClusterSiteConfigV2Build(t *testing.T) {
+	sc := SiteConfig{}
+	err := yaml.Unmarshal([]byte(siteConfigV2Test), &sc)
+	assert.NoError(t, err)
+
+	outputStr := checkSiteConfigBuild(t, sc)
+	filesData, err := ReadFile("testdata/siteConfigV2TestOutput.yaml")
+	assert.Equal(t, string(filesData), outputStr)
+}
+
 func Test_SNOClusterSiteConfigBuild(t *testing.T) {
 	sc := SiteConfig{}
 	err := yaml.Unmarshal([]byte(siteConfigTest), &sc)
@@ -934,17 +1092,17 @@ func Test_CRTemplateOverride(t *testing.T) {
 		expectedSearchCollector bool
 		expectedBmhInspection   IronicInspect
 		expectedCMOverride      bool
+		expectedCrValues        []map[string]string
+		skipV1Check             bool
 	}{{
 		what:                    "No overrides",
 		expectedErrorContains:   "",
 		expectedSearchCollector: false,
-		expectedBmhInspection:   inspectDisabled,
 	}, {
 		what:                    "Override KlusterletAddonConfig at the site level",
 		siteCrTemplates:         map[string]string{"KlusterletAddonConfig": "testdata/KlusterletAddonConfigOverride.yaml"},
 		expectedErrorContains:   "",
 		expectedSearchCollector: true,
-		expectedBmhInspection:   inspectDisabled,
 	}, {
 		what:                  "Override KlusterletAddonConfig with missing metadata",
 		clusterCrTemplates:    map[string]string{"KlusterletAddonConfig": "testdata/KlusterletAddonConfigOverride-MissingMetadata.yaml"},
@@ -962,13 +1120,11 @@ func Test_CRTemplateOverride(t *testing.T) {
 		clusterCrTemplates:      map[string]string{"KlusterletAddonConfig": "testdata/KlusterletAddonConfigOverride.yaml"},
 		expectedErrorContains:   "",
 		expectedSearchCollector: true,
-		expectedBmhInspection:   inspectDisabled,
 	}, {
 		what:                    "Override KlusterletAddonConfig at the cluster level",
 		clusterCrTemplates:      map[string]string{"KlusterletAddonConfig": "testdata/KlusterletAddonConfigOverride-NotTemplated.yaml"},
 		expectedErrorContains:   "",
 		expectedSearchCollector: true,
-		expectedBmhInspection:   inspectDisabled,
 	}, {
 		what:                  "Override KlusterletAddonConfig at the node level",
 		nodeCrTemplates:       map[string]string{"KlusterletAddonConfig": "testdata/KlusterletAddonConfigOverride.yaml"},
@@ -998,22 +1154,41 @@ func Test_CRTemplateOverride(t *testing.T) {
 	}, {
 		what:                  "Override with a mismatched hard-coded metadata.name",
 		eachCrTemplates:       map[string]string{"BareMetalHost": "testdata/BareMetalHostOverride-badName.yaml"},
-		expectedErrorContains: " metadata.name ",
+		expectedErrorContains: "",
+		expectedBmhInspection: inspectEnabled,
+		expectedCrValues:      []map[string]string{{"kind": "BareMetalHost", "name": "node1", "namespace": "cluster1"}},
 	}, {
 		what:                  "Override with a mismatched hard-coded metadata.namespace",
 		eachCrTemplates:       map[string]string{"BareMetalHost": "testdata/BareMetalHostOverride-badNamespace.yaml"},
-		expectedErrorContains: " metadata.namespace ",
+		expectedErrorContains: "",
+		expectedCrValues:      []map[string]string{{"kind": "BareMetalHost", "name": "node1", "namespace": "cluster1"}},
 	}, {
 		what:                  "Override with a mismatched hard-coded argocd annotation",
 		eachCrTemplates:       map[string]string{"BareMetalHost": "testdata/BareMetalHostOverride-badAnnotation.yaml"},
 		expectedErrorContains: ` metadata.annotations["argocd.argoproj.io/sync-wave"]`,
 	}, {
 		what:                    "Override ConfigMap at the cluster level",
-		clusterCrTemplates:      map[string]string{"ConfigMap": "testdata/ConfigMapOverride.yaml"},
+		clusterCrTemplates:      map[string]string{"ConfigMap": "testdata/ConfigMapOverride-AddAnnotations.yaml"},
 		expectedErrorContains:   "",
 		expectedSearchCollector: false,
-		expectedBmhInspection:   inspectDisabled,
 		expectedCMOverride:      true,
+	}, {
+		what:                  "Override siteConfigMap",
+		clusterCrTemplates:    map[string]string{"ConfigMap": "testdata/ConfigMapOverride-OverrideSiteConfigMap.yaml"},
+		expectedErrorContains: "",
+		expectedCrValues: []map[string]string{
+			{
+				"kind":        "ConfigMap",
+				"name":        "cluster1",
+				"namespace":   "cluster1",
+				"annotations": "{\"argocd.argoproj.io/sync-wave\":\"1\",\"ran.openshift.io/ztp-gitops-generated\":\"{}\"}",
+			}, {
+				"kind":        "ConfigMap",
+				"name":        "cluster1-configmap",
+				"namespace":   "ztp-zone-1",
+				"annotations": "{\"argocd.argoproj.io/sync-wave\":\"2\",\"overrideconfigmap-annotation/test\":\"site-configmap-new-annotation\",\"ran.openshift.io/ztp-gitops-generated\":\"{}\"}",
+			}},
+		skipV1Check: true,
 	}}
 
 	scBuilder, err := NewSiteConfigBuilder()
@@ -1047,28 +1222,85 @@ func Test_CRTemplateOverride(t *testing.T) {
 				tag = fmt.Sprintf("%s at the %s level", test.what, scope)
 			}
 			sc := SiteConfig{}
-			err = yaml.Unmarshal([]byte(siteConfigTest), &sc)
-			assert.NoError(t, err, tag)
+			siteConfigList := []string{siteConfigTest, siteConfigV2Test}
+			for _, siteConfig := range siteConfigList {
+				err = yaml.Unmarshal([]byte(siteConfig), &sc)
+				assert.NoError(t, err, tag)
 
-			setup(&sc)
+				setup(&sc)
 
-			result, err := scBuilder.Build(sc)
-			if test.expectedErrorContains == "" {
-				if assert.NoError(t, err, tag) {
-					assertKlusterletSearchCollector(t, result, test.expectedSearchCollector, "cluster1", tag)
-					assertBmhInspection(t, result, test.expectedBmhInspection, "cluster1", "node1", tag)
-					// Check for the added annotation from ConfigMapOverride.yaml and the data field is updated.
-					if test.expectedCMOverride {
-						assertConfigMapOverride(t, result, []string{"overrideconfigmap-annotation/test"}, "cluster1", tag)
+				result, err := scBuilder.Build(sc)
+				if test.expectedErrorContains == "" {
+					if assert.NoError(t, err, tag) {
+						assertKlusterletSearchCollector(t, result, test.expectedSearchCollector, "cluster1", tag)
+						assertBmhInspection(t, result, test.expectedBmhInspection, "cluster1", "node1", tag)
+						// Check for the added annotation from ConfigMap overrides and the data field is updated.
+						if test.expectedCMOverride {
+							assertConfigMapOverride(t, result, []string{"overrideconfigmap-annotation/test"}, "cluster1", tag)
+						}
+
+						if test.expectedCrValues != nil {
+							if sc.ApiVersion == siteConfigAPIV1 && test.skipV1Check {
+								continue
+							}
+							assert.Equal(t, true, expectedCRExists(t, result, test.expectedCrValues), tag)
+						}
 					}
-				}
-			} else {
-				if assert.Error(t, err, tag) {
-					assert.Contains(t, err.Error(), test.expectedErrorContains, tag)
+				} else {
+					if assert.Error(t, err, tag) {
+						assert.Contains(t, err.Error(), test.expectedErrorContains, tag)
+					}
 				}
 			}
 		}
 	}
+}
+
+// expectedCRExists goes through the CRs built by the site config generator and finds the one that
+// matches its kind and metadata with the test provided CRKind and expectedMetadataValues.
+//
+// Returns:
+//
+//	true  if the CR is found
+//	false if the CR is not found
+func expectedCRExists(t *testing.T, builtCRs map[string][]interface{},
+	expectedMetadataValues []map[string]string) bool {
+
+	foundCRCount := 0
+	for _, metadataEntry := range expectedMetadataValues {
+		for _, cr := range builtCRs["test-site/cluster1"] {
+			mapSourceCR := cr.(map[string]interface{})
+			if mapSourceCR["kind"] == metadataEntry["kind"] {
+				foundMetadataFieldCount := 0
+				metadata := mapSourceCR["metadata"].(map[string]interface{})
+
+				// Get the annotations into a JSON string format.
+				annotations := metadata["annotations"]
+				jsonBytes, err := json.Marshal(annotations)
+				assert.NoError(t, err)
+
+				for key, metadataValue := range metadataEntry {
+					if key == "kind" {
+						continue
+					}
+					if key == "annotations" {
+						if metadataValue == string(jsonBytes) {
+							foundMetadataFieldCount++
+						}
+					} else if metadataValue == metadata[key].(string) {
+						foundMetadataFieldCount++
+					}
+				}
+				// We found the CR we were looking for.
+				if foundMetadataFieldCount == len(metadataEntry)-1 {
+					foundCRCount++
+					break
+				}
+			}
+		}
+	}
+
+	return foundCRCount == len(expectedMetadataValues)
 }
 
 func assertConfigMapOverride(t *testing.T, builtCRs map[string][]interface{}, annotationKeys []string, clusterName string, tag string) {
@@ -1123,6 +1355,279 @@ func assertBmhInspection(t *testing.T, builtCRs map[string][]interface{}, expect
 			}
 			break
 		}
+	}
+}
+
+func Test_CRAnnotationAppend(t *testing.T) {
+	tests := []struct {
+		name                 string
+		cr                   string
+		siteCrAnnotations    map[string]string
+		clusterCrAnnotations map[string]string
+		node1CrAnnotations   map[string]string
+		node2CrAnnotations   map[string]string
+		nodeCrAnnotations    map[string]map[string]string
+		expected             map[string]map[string]string
+	}{
+		{
+			name: "Add new annotations at the site level only",
+			cr:   "BareMetalHost",
+			siteCrAnnotations: map[string]string{
+				"test-adding-annotation1": "true",
+				"test-adding-annotation2": "true",
+			},
+			expected: map[string]map[string]string{
+				"BareMetalHost-node1": {
+					"test-adding-annotation1": "true",
+					"test-adding-annotation2": "true",
+				},
+				"BareMetalHost-node2": {
+					"test-adding-annotation1": "true",
+					"test-adding-annotation2": "true",
+				},
+			},
+		},
+		{
+			name: "Add new annotations at the cluster level only",
+			cr:   "BareMetalHost",
+			clusterCrAnnotations: map[string]string{
+				"test-adding-annotation1": "true",
+				"test-adding-annotation2": "true",
+			},
+			expected: map[string]map[string]string{
+				"BareMetalHost-node1": {
+					"test-adding-annotation1": "true",
+					"test-adding-annotation2": "true",
+				},
+				"BareMetalHost-node2": {
+					"test-adding-annotation1": "true",
+					"test-adding-annotation2": "true",
+				},
+			},
+		},
+		{
+			name: "Add new annotations at the node level only",
+			cr:   "BareMetalHost",
+			nodeCrAnnotations: map[string]map[string]string{
+				"node1": {"test-adding-annotation1": "true"},
+				"node2": {"test-adding-annotation2": "true"},
+			},
+			expected: map[string]map[string]string{
+				"BareMetalHost-node1": {
+					"test-adding-annotation1": "node1",
+				},
+				"BareMetalHost-node2": {
+					"test-adding-annotation2": "node2",
+				},
+			},
+		},
+		{
+			name: "Add new annotations at all levels",
+			cr:   "BareMetalHost",
+			siteCrAnnotations: map[string]string{
+				"test-adding-annotation1": "true",
+				"test-adding-annotation2": "true",
+				"test-adding-annotation3": "true",
+			},
+			clusterCrAnnotations: map[string]string{
+				"test-adding-annotation1": "false",
+				"test-adding-annotation2": "false",
+			},
+			nodeCrAnnotations: map[string]map[string]string{
+				"node1": {"test-adding-annotation1": "node1"},
+				"node2": {"test-adding-annotation2": "node2"},
+			},
+			expected: map[string]map[string]string{
+				"BareMetalHost-node1": {
+					"test-adding-annotation1": "node1",
+					"test-adding-annotation2": "false",
+					"test-adding-annotation3": "true",
+				},
+				"BareMetalHost-node2": {
+					"test-adding-annotation1": "false",
+					"test-adding-annotation2": "node2",
+					"test-adding-annotation3": "true",
+				},
+			},
+		},
+		{
+			name: "Add annotations that already exist",
+			cr:   "BareMetalHost",
+			nodeCrAnnotations: map[string]map[string]string{
+				"node1": {
+					"test-adding-annotation1":                  "node1",
+					"bmac.agent-install.openshift.io/role":     "worker",
+					"bmac.agent-install.openshift.io/hostname": "node1-new",
+				},
+				"node2": {
+					"test-adding-annotation2":                  "node2",
+					"bmac.agent-install.openshift.io/role":     "worker",
+					"bmac.agent-install.openshift.io/hostname": "node2-new",
+				},
+			},
+			expected: map[string]map[string]string{
+				"BareMetalHost-node1": {
+					"test-adding-annotation1": "node1",
+				},
+				"BareMetalHost-node2": {
+					"test-adding-annotation2": "node2",
+				},
+			},
+		},
+	}
+
+	scBuilder, _ := NewSiteConfigBuilder()
+	scBuilder.SetLocalExtraManifestPath("testdata/extra-manifest")
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			sc := SiteConfig{}
+			err := yaml.Unmarshal([]byte(siteConfigV2StandardClusterTest), &sc)
+			assert.Equal(t, err, nil)
+
+			// Set the siteconfig CrAnnotations at the site level
+			if test.siteCrAnnotations != nil {
+				sc.Spec.CrAnnotations.Add = make(map[string]map[string]string)
+				sc.Spec.CrAnnotations.Add[test.cr] = test.siteCrAnnotations
+			}
+			// Set the siteconfig CrAnnotations at the cluster level
+			if test.clusterCrAnnotations != nil {
+				sc.Spec.Clusters[0].CrAnnotations.Add = make(map[string]map[string]string)
+				sc.Spec.Clusters[0].CrAnnotations.Add[test.cr] = test.clusterCrAnnotations
+			}
+			// Set the siteconfig CrAnnotations at the node level
+			if test.nodeCrAnnotations != nil {
+				for hostname, crAnnotations := range test.nodeCrAnnotations {
+					for id, node := range sc.Spec.Clusters[0].Nodes {
+						if node.HostName == hostname {
+							sc.Spec.Clusters[0].Nodes[id].CrAnnotations.Add = make(map[string]map[string]string)
+							sc.Spec.Clusters[0].Nodes[id].CrAnnotations.Add[test.cr] = crAnnotations
+						}
+					}
+				}
+			}
+
+			clustersCRs, err := scBuilder.Build(sc)
+			assert.NoError(t, err)
+
+			for _, clusterCRs := range clustersCRs {
+				for _, clusterCR := range clusterCRs {
+					mapSourceCR := clusterCR.(map[string]interface{})
+					if mapSourceCR["kind"] == test.cr {
+						metadata := mapSourceCR["metadata"].(map[string]interface{})
+						annotations := metadata["annotations"].(map[string]interface{})
+
+						// Verify the generated CR has expected annotations added
+						if _, found := test.expected[test.cr+"-"+metadata["name"].(string)]; found {
+							for annotKey, annotValue := range test.expected[metadata["name"].(string)] {
+								assert.Contains(t, annotations, annotKey)
+								assert.Equal(t, annotations[annotKey], annotValue)
+							}
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func Test_CRsuppression(t *testing.T) {
+	tests := []struct {
+		name                      string
+		clusterCrSuppression      []string
+		nodeCrSuppression         map[string][]string
+		expectedSuppressedCRs     []map[string]string
+		expectedNumOfGeneratedCRs int
+	}{
+		{
+			name: "Suppress a node level CR at a node level",
+			nodeCrSuppression: map[string][]string{
+				"node5": {"BareMetalHost"},
+			},
+			expectedSuppressedCRs: []map[string]string{
+				{"kind": "BareMetalHost", "name": "node5"},
+			},
+			expectedNumOfGeneratedCRs: 16,
+		},
+		{
+			name: "Suppress node level CRs at a node level",
+			nodeCrSuppression: map[string][]string{
+				"node5": {"NMStateConfig", "BareMetalHost"},
+			},
+			expectedSuppressedCRs: []map[string]string{
+				{"kind": "NMStateConfig", "name": "node5"},
+				{"kind": "BareMetalHost", "name": "node5"},
+			},
+			expectedNumOfGeneratedCRs: 15,
+		},
+		{
+			name: "Suppress a node level CR at the node levels",
+			nodeCrSuppression: map[string][]string{
+				"node4": {"NMStateConfig"},
+				"node5": {"BareMetalHost"},
+			},
+			expectedSuppressedCRs: []map[string]string{
+				{"kind": "NMStateConfig", "name": "node4"},
+				{"kind": "BareMetalHost", "name": "node5"},
+			},
+			expectedNumOfGeneratedCRs: 15,
+		},
+		{
+			name: "Suppress a cluster level CR at the cluster level",
+			clusterCrSuppression: []string{
+				"ManagedCluster",
+			},
+			expectedSuppressedCRs: []map[string]string{
+				{"kind": "ManagedCluster", "name": "cluster1"},
+			},
+			expectedNumOfGeneratedCRs: 16,
+		},
+		{
+			name: "Ignore when suppressing a node level CR at the cluster level",
+			clusterCrSuppression: []string{
+				"BareMetalHost",
+			},
+			expectedSuppressedCRs:     []map[string]string{},
+			expectedNumOfGeneratedCRs: 17,
+		},
+	}
+
+	scBuilder, _ := NewSiteConfigBuilder()
+	scBuilder.SetLocalExtraManifestPath("testdata/extra-manifest")
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			sc := SiteConfig{}
+			err := yaml.Unmarshal([]byte(siteConfigV2StandardClusterTest), &sc)
+			assert.Equal(t, err, nil)
+
+			if test.clusterCrSuppression != nil {
+				sc.Spec.Clusters[0].CrSuppression = test.clusterCrSuppression
+			}
+
+			if test.nodeCrSuppression != nil {
+				for hostname, crSuppression := range test.nodeCrSuppression {
+					for id, node := range sc.Spec.Clusters[0].Nodes {
+						if node.HostName == hostname {
+							sc.Spec.Clusters[0].Nodes[id].CrSuppression = crSuppression
+						}
+					}
+				}
+			}
+
+			clustersCRs, err := scBuilder.Build(sc)
+			assert.NoError(t, err)
+
+			var generatedCRs []map[string]string
+			for _, clusterCR := range clustersCRs["test-standard/cluster1"] {
+				mapSourceCR := clusterCR.(map[string]interface{})
+				metadata := mapSourceCR["metadata"].(map[string]interface{})
+				generatedCRs = append(generatedCRs, map[string]string{"kind": mapSourceCR["kind"].(string), "name": metadata["name"].(string)})
+			}
+
+			assert.NotContains(t, generatedCRs, test.expectedSuppressedCRs)
+			assert.Equal(t, test.expectedNumOfGeneratedCRs, len(clustersCRs["test-standard/cluster1"]))
+		})
 	}
 }
 
@@ -1465,7 +1970,9 @@ spec:
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sc := SiteConfig{}
+			sc := SiteConfig{
+				ApiVersion: siteConfigAPIV1,
+			}
 			scString := fmt.Sprintf(s, tt.args.filter)
 
 			err := yaml.Unmarshal([]byte(scString), &sc)
@@ -1549,7 +2056,9 @@ spec:
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sc := SiteConfig{}
+			sc := SiteConfig{
+				ApiVersion: siteConfigAPIV1,
+			}
 			scString := fmt.Sprintf(s, tt.args.configSplit)
 
 			err := yaml.Unmarshal([]byte(scString), &sc)
@@ -1698,4 +2207,154 @@ spec:
 		})
 	}
 
+}
+
+func Test_siteConfigMap(t *testing.T) {
+	siteConfigV1 := `
+    apiVersion: ran.openshift.io/v1
+    kind: SiteConfig
+    metadata:
+      name: "test-site-1"
+      namespace: "test-site-1"
+    spec:
+      baseDomain: "example.com"
+      clusterImageSetNameRef: "openshift-v4.15.0"
+      sshPublicKey:
+      siteConfigMap:
+        data:
+          key1: value1
+      clusters:
+      - clusterName: "cluster-1"
+        clusterLabels:
+          sites : "test-site-1"
+        nodes:
+          - hostName: "node1"
+    `
+
+	siteConfigV2_1 := `
+    apiVersion: ran.openshift.io/v2
+    kind: SiteConfig
+    metadata:
+      name: "test-site-2"
+      namespace: "test-site-2"
+    spec:
+      baseDomain: "example.com"
+      clusterImageSetNameRef: "openshift-v4.15.0"
+      sshPublicKey:
+      clusters:
+      - clusterName: "cluster-1"
+        clusterLabels:
+          sites : "test-site-2"
+        nodes:
+          - hostName: "node1"
+      - clusterName: "cluster-2"
+        clusterLabels:
+          sites : "test-site-v2"
+        siteConfigMap:
+          name: site-configmap-1-cluster-2
+        nodes:
+          - hostName: "node1"
+      - clusterName: "cluster-3"
+        clusterLabels:
+          sites : "test-site-v2"
+        siteConfigMap:
+          name: site-configmap-1-cluster-3
+          data:
+            key_1: value_1
+        nodes:
+          - hostName: "node1"
+      - clusterName: "cluster-4"
+        clusterLabels:
+          sites : "test-site-v2"
+        siteConfigMap:
+          data:
+            key_1: value_1
+        nodes:
+          - hostName: "node1"
+    `
+
+	tests := []struct {
+		name                  string
+		siteConfigToUse       string
+		siteConfigMapPresent  map[string]bool
+		siteConfigMapNames    map[string]string
+		expectedCRsPerCluster map[string]int
+		expectedError         bool
+	}{
+		{
+			name:                  "siteConfigMap on SiteConfig V1 is ignored",
+			siteConfigToUse:       siteConfigV1,
+			siteConfigMapPresent:  map[string]bool{"test-site-1/cluster-1": false},
+			expectedError:         false,
+			expectedCRsPerCluster: map[string]int{"test-site-1/cluster-1": 8},
+		},
+		{
+			name:            "siteConfigMap on SiteConfig V2 with 4 valid scenarios",
+			siteConfigToUse: siteConfigV2_1,
+			siteConfigMapPresent: map[string]bool{
+				"test-site-2/cluster-1": false,
+				"test-site-2/cluster-2": true,
+				"test-site-2/cluster-3": true,
+				"test-site-2/cluster-4": true},
+			siteConfigMapNames: map[string]string{
+				"test-site-2/cluster-1": "",
+				"test-site-2/cluster-2": "site-configmap-1-cluster-2",
+				"test-site-2/cluster-3": "site-configmap-1-cluster-3",
+				"test-site-2/cluster-4": "ztp-site-cluster-4"},
+			expectedError: false,
+			expectedCRsPerCluster: map[string]int{
+				"test-site-2/cluster-1": 8,
+				"test-site-2/cluster-2": 9,
+				"test-site-2/cluster-3": 9,
+				"test-site-2/cluster-4": 9},
+		},
+	}
+
+	scBuilder, err := NewSiteConfigBuilder()
+	scBuilder.SetLocalExtraManifestPath("testdata/extra-manifest")
+	assert.NoError(t, err)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			sc := SiteConfig{}
+
+			err := yaml.Unmarshal([]byte(test.siteConfigToUse), &sc)
+			if !cmp.Equal(err, nil) {
+				t.Errorf("Test_siteConfigMap() unmarshal err got = %v, want %v", err.Error(), "no error")
+				t.FailNow()
+			}
+
+			clustersCRs, err := scBuilder.Build(sc)
+			if test.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, len(clustersCRs), len(sc.Spec.Clusters))
+
+				for fullClusterName, clusterCRs := range clustersCRs {
+					_, clusterName, found := strings.Cut(fullClusterName, "/")
+					if !found {
+						t.Errorf("Unexpected clusterCRs name: %s", fullClusterName)
+						t.FailNow()
+					}
+					assert.Equal(t, len(clusterCRs), test.expectedCRsPerCluster[fullClusterName])
+					if test.siteConfigMapNames == nil {
+						break
+					}
+					siteConfigMapFound := false
+					for _, cr := range clusterCRs {
+						mapSourceCR := cr.(map[string]interface{})
+						if mapSourceCR["kind"] == "ConfigMap" {
+							metadata := mapSourceCR["metadata"].(map[string]interface{})
+							if metadata["name"] == test.siteConfigMapNames[fullClusterName] && metadata["name"] != clusterName {
+								siteConfigMapFound = true
+								break
+							}
+						}
+					}
+					assert.Equal(t, siteConfigMapFound, test.siteConfigMapPresent[fullClusterName])
+				}
+			}
+		})
+	}
 }
